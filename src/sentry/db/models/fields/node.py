@@ -16,7 +16,6 @@ import warnings
 from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_delete
-from south.modelsinspector import add_introspection_rules
 
 from sentry.utils.cache import memoize
 from sentry.utils.compat import pickle
@@ -174,4 +173,7 @@ class NodeField(GzippedDictField):
         }))
 
 
-add_introspection_rules([], ["^sentry\.db\.models\.fields\.node\.NodeField"])
+if 'south' in settings.INSTALLED_APPS:
+    from south.modelsinspector import add_introspection_rules
+
+    add_introspection_rules([], ["^sentry\.db\.models\.fields\.node\.NodeField"])

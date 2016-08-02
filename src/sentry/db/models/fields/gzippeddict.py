@@ -11,8 +11,8 @@ from __future__ import absolute_import, print_function
 import logging
 import six
 
+from django.conf import settings
 from django.db import models
-from south.modelsinspector import add_introspection_rules
 
 from sentry.utils.compat import pickle
 from sentry.utils.strings import decompress, compress
@@ -54,4 +54,7 @@ class GzippedDictField(models.TextField):
         return self.get_prep_value(value)
 
 
-add_introspection_rules([], ["^sentry\.db\.models\.fields\.gzippeddict\.GzippedDictField"])
+if 'south' in settings.INSTALLED_APPS:
+    from south.modelsinspector import add_introspection_rules
+
+    add_introspection_rules([], ["^sentry\.db\.models\.fields\.gzippeddict\.GzippedDictField"])
