@@ -10,12 +10,14 @@ APPLE_SDK_MAPPING = {
     'iPhone OS': 'iOS',
     'tvOS': 'tvOS',
     'Mac OS': 'macOS',
+    'watchOS': 'watchOS',
 }
 
 KNOWN_DSYM_TYPES = {
     'iOS': 'macho',
     'tvOS': 'macho',
-    'macOS': 'macho'
+    'macOS': 'macho',
+    'watchOS': 'macho',
 }
 
 
@@ -55,27 +57,34 @@ def find_stacktrace_referenced_images(debug_images, stacktraces):
 
 def find_all_stacktraces(data):
     """Given a data dictionary from an event this returns all
-    relevant stacktraces in a list.
+    relevant stacktraces in a list.  If a frame contains a raw_stacktrace
+    property it's preferred over the processed one.
     """
     rv = []
+
+    def _probe_for_stacktrace(container):
+        raw = container.get('raw_stacktrace')
+        if raw is not None:
+            rv.append((raw, container))
+        else:
+            processed = container.get('stacktrace')
+            if processed is not None:
+                rv.append((processed, container))
 
     exc_container = data.get('sentry.interfaces.Exception')
     if exc_container:
         for exc in exc_container['values']:
-            stacktrace = exc.get('stacktrace')
-            if stacktrace:
-                rv.append(stacktrace)
+            _probe_for_stacktrace(exc)
 
+    # The legacy stacktrace interface does not support raw stacktraces
     stacktrace = data.get('sentry.interfaces.Stacktrace')
     if stacktrace:
-        rv.append(stacktrace)
+        rv.append((stacktrace, None))
 
     threads = data.get('threads')
     if threads:
         for thread in threads['values']:
-            stacktrace = thread.get('stacktrace')
-            if stacktrace:
-                rv.append(stacktrace)
+            _probe_for_stacktrace(thread)
 
     return rv
 
@@ -114,7 +123,11 @@ def get_sdk_from_apple_system_info(info):
     if not info:
         return None
     try:
-        sdk_name = APPLE_SDK_MAPPING[info['system_name']]
+        # Support newer mapping in old format.
+        if info['system_name'] in KNOWN_DSYM_TYPES:
+            sdk_name = info['system_name']
+        else:
+            sdk_name = APPLE_SDK_MAPPING[info['system_name']]
         system_version = tuple(int(x) for x in (
             info['system_version'] + '.0' * 3).split('.')[:3])
     except (ValueError, LookupError):

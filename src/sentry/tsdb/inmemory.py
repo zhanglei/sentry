@@ -7,13 +7,13 @@ sentry.tsdb.inmemory
 """
 from __future__ import absolute_import
 
-import six
-
 from collections import Counter, defaultdict
-from datetime import timedelta
+
+import six
 from django.utils import timezone
 
 from sentry.tsdb.base import BaseTSDB
+from sentry.utils.dates import to_datetime, to_timestamp
 
 
 class InMemoryTSDB(BaseTSDB):
@@ -30,28 +30,20 @@ class InMemoryTSDB(BaseTSDB):
         if timestamp is None:
             timestamp = timezone.now()
 
-        for rollup, max_values in self.rollups:
+        for rollup, max_values in six.iteritems(self.rollups):
             norm_epoch = self.normalize_to_rollup(timestamp, rollup)
             self.data[model][key][norm_epoch] += count
 
     def get_range(self, model, keys, start, end, rollup=None):
-        normalize_to_epoch = self.normalize_to_epoch
-        normalize_to_rollup = self.normalize_to_rollup
-
-        if rollup is None:
-            rollup = self.get_optimal_rollup(start, end)
+        rollup, series = self.get_optimal_rollup_series(start, end, rollup)
 
         results = []
-        timestamp = end
-        while timestamp >= start:
-            real_epoch = normalize_to_epoch(timestamp, rollup)
-            norm_epoch = normalize_to_rollup(timestamp, rollup)
+        for timestamp in map(to_datetime, series):
+            norm_epoch = self.normalize_to_rollup(timestamp, rollup)
 
             for key in keys:
                 value = self.data[model][key][norm_epoch]
-                results.append((real_epoch, key, value))
-
-            timestamp = timestamp - timedelta(seconds=rollup)
+                results.append((to_timestamp(timestamp), key, value))
 
         results_by_key = defaultdict(dict)
         for epoch, key, count in results:
@@ -65,7 +57,7 @@ class InMemoryTSDB(BaseTSDB):
         if timestamp is None:
             timestamp = timezone.now()
 
-        for rollup, max_values in self.rollups:
+        for rollup, max_values in six.iteritems(self.rollups):
             r = self.normalize_to_rollup(timestamp, rollup)
             self.sets[model][key][r].update(values)
 
@@ -138,7 +130,7 @@ class InMemoryTSDB(BaseTSDB):
             for key, items in request.items():
                 items = {k: float(v) for k, v in items.items()}
                 source = self.frequencies[model][key]
-                for rollup, _ in self.rollups:
+                for rollup in self.rollups:
                     source[self.normalize_to_rollup(timestamp, rollup)].update(items)
 
     def get_most_frequent(self, model, keys, start, end=None, rollup=None, limit=None):

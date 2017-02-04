@@ -19,17 +19,18 @@ from raven.contrib.django.models import client as Raven
 
 from sentry import app
 from sentry.coreapi import (
-    APIError, APIForbidden, APIRateLimited, ClientApiHelper, CspApiHelper
+    APIError, APIForbidden, APIRateLimited, ClientApiHelper, CspApiHelper,
+    LazyData
 )
-from sentry.event_manager import EventManager
-from sentry.models import Project, OrganizationOption
-from sentry.signals import event_accepted, event_received
+from sentry.models import Project, OrganizationOption, Organization
+from sentry.signals import (
+    event_accepted, event_dropped, event_filtered, event_received
+)
 from sentry.quotas.base import RateLimit
 from sentry.utils import json, metrics
-from sentry.utils.csp import is_valid_csp_report
 from sentry.utils.data_scrubber import SensitiveDataFilter
 from sentry.utils.http import (
-    is_valid_origin, get_origins, is_same_domain, is_valid_ip,
+    is_valid_origin, get_origins, is_same_domain,
 )
 from sentry.utils.safe import safe_execute
 from sentry.web.helpers import render_to_response
@@ -116,6 +117,8 @@ class APIView(BaseView):
                 response['Retry-After'] = six.text_type(e.retry_after)
 
         except Exception as e:
+            # TODO(dcramer): test failures are not outputting the log message
+            # here
             if settings.DEBUG:
                 content = traceback.format_exc()
             else:
@@ -156,6 +159,8 @@ class APIView(BaseView):
                 'Content-Type, Authentication'
             response['Access-Control-Allow-Methods'] = \
                 ', '.join(self._allowed_methods())
+            response['Access-Control-Expose-Headers'] = \
+                'X-Sentry-Error, Retry-After'
 
         return response
 
@@ -181,19 +186,23 @@ class APIView(BaseView):
         else:
             auth = self._parse_header(request, helper, project)
 
-            project_ = helper.project_from_auth(auth)
+            project_id = helper.project_id_from_auth(auth)
 
             # Legacy API was /api/store/ and the project ID was only available elsewhere
             if not project:
-                if not project_:
-                    raise APIError('Unable to identify project')
-                project = project_
+                project = Project.objects.get_from_cache(id=project_id)
                 helper.context.bind_project(project)
-            elif project_ != project:
-                raise APIError('Two different project were specified')
+            elif project_id != project.id:
+                raise APIError('Two different projects were specified')
 
             helper.context.bind_auth(auth)
             Raven.tags_context(helper.context.get_tags_context())
+
+            # Explicitly bind Organization so we don't implicitly query it later
+            # this just allows us to comfortably assure that `project.organization` is safe.
+            # This also allows us to pull the object from cache, instead of being
+            # implicitly fetched from database.
+            project.organization = Organization.objects.get_from_cache(id=project.organization_id)
 
             if auth.version != '2.0':
                 if not auth.secret_key:
@@ -219,7 +228,16 @@ class APIView(BaseView):
             )
 
         if origin:
-            response['Access-Control-Allow-Origin'] = origin
+            if origin == 'null':
+                # If an Origin is `null`, but we got this far, that means
+                # we've gotten past our CORS check for some reason. But the
+                # problem is that we can't return "null" as a valid response
+                # to `Access-Control-Allow-Origin` and we don't have another
+                # value to work with, so just allow '*' since they've gotten
+                # this far.
+                response['Access-Control-Allow-Origin'] = '*'
+            else:
+                response['Access-Control-Allow-Origin'] = origin
 
         return response
 
@@ -264,7 +282,18 @@ class StoreView(APIView):
 
     """
     def post(self, request, **kwargs):
-        data = request.body
+        try:
+            data = request.body
+        except Exception as e:
+            logger.exception(e)
+            # We were unable to read the body.
+            # This would happen if a request were submitted
+            # as a multipart form for example, where reading
+            # body yields an Exception. There's also not a more
+            # sane exception to catch here. This will ultimately
+            # bubble up as an APIError.
+            data = None
+
         response_or_event_id = self.process(request, data=data, **kwargs)
         if isinstance(response_or_event_id, HttpResponse):
             return response_or_event_id
@@ -285,13 +314,27 @@ class StoreView(APIView):
     def process(self, request, project, auth, helper, data, **kwargs):
         metrics.incr('events.total')
 
+        if not data:
+            raise APIError('No JSON data was found')
+
         remote_addr = request.META['REMOTE_ADDR']
+
+        data = LazyData(
+            data=data,
+            content_encoding=request.META.get('HTTP_CONTENT_ENCODING', ''),
+            helper=helper,
+            project=project,
+            auth=auth,
+            client_ip=remote_addr,
+        )
+
         event_received.send_robust(
             ip=remote_addr,
+            project=project,
             sender=type(self),
         )
 
-        if not is_valid_ip(remote_addr, project):
+        if helper.should_filter(project, data, ip_address=remote_addr):
             app.tsdb.incr_multi([
                 (app.tsdb.models.project_total_received, project.id),
                 (app.tsdb.models.project_total_blacklisted, project.id),
@@ -299,7 +342,12 @@ class StoreView(APIView):
                 (app.tsdb.models.organization_total_blacklisted, project.organization_id),
             ])
             metrics.incr('events.blacklisted')
-            raise APIForbidden('Blacklisted IP address: %s' % (remote_addr,))
+            event_filtered.send_robust(
+                ip=remote_addr,
+                project=project,
+                sender=type(self),
+            )
+            raise APIForbidden('Event dropped due to filter')
 
         # TODO: improve this API (e.g. make RateLimit act on __ne__)
         rate_limit = safe_execute(app.quotas.is_rate_limited, project=project,
@@ -319,6 +367,11 @@ class StoreView(APIView):
                 (app.tsdb.models.organization_total_rejected, project.organization_id),
             ])
             metrics.incr('events.dropped')
+            event_dropped.send_robust(
+                ip=remote_addr,
+                project=project,
+                sender=type(self),
+            )
             if rate_limit is not None:
                 raise APIRateLimited(rate_limit.retry_after)
         else:
@@ -327,41 +380,12 @@ class StoreView(APIView):
                 (app.tsdb.models.organization_total_received, project.organization_id),
             ])
 
-        content_encoding = request.META.get('HTTP_CONTENT_ENCODING', '')
-
-        if isinstance(data, six.string_types):
-            if content_encoding == 'gzip':
-                data = helper.decompress_gzip(data)
-            elif content_encoding == 'deflate':
-                data = helper.decompress_deflate(data)
-            elif not data.startswith('{'):
-                data = helper.decode_and_decompress_data(data)
-            data = helper.safely_load_json_string(data)
-
-        # mutates data
-        data = helper.validate_data(project, data)
-
-        if 'sdk' not in data:
-            sdk = helper.parse_client_as_sdk(auth.client)
-            if sdk:
-                data['sdk'] = sdk
-
-        # mutates data
-        manager = EventManager(data, version=auth.version)
-        data = manager.normalize()
-
         org_options = OrganizationOption.objects.get_all_values(project.organization_id)
 
         if org_options.get('sentry:require_scrub_ip_address', False):
             scrub_ip_address = True
         else:
             scrub_ip_address = project.get_option('sentry:scrub_ip_address', False)
-
-        # insert IP address if not available and wanted
-        if not scrub_ip_address:
-            helper.ensure_has_ip(
-                data, remote_addr, set_if_missing=auth.is_public or
-                data.get('platform') in ('javascript', 'cocoa', 'objc'))
 
         event_id = data['event_id']
 
@@ -385,6 +409,12 @@ class StoreView(APIView):
                 project.get_option(sensitive_fields_key, [])
             )
 
+            exclude_fields_key = 'sentry:safe_fields'
+            exclude_fields = (
+                org_options.get(exclude_fields_key, []) +
+                project.get_option(exclude_fields_key, [])
+            )
+
             if org_options.get('sentry:require_scrub_defaults', False):
                 scrub_defaults = True
             else:
@@ -393,6 +423,7 @@ class StoreView(APIView):
             inst = SensitiveDataFilter(
                 fields=sensitive_fields,
                 include_defaults=scrub_defaults,
+                exclude_fields=exclude_fields,
             )
             inst.apply(data)
 
@@ -446,9 +477,9 @@ class CspReportView(StoreView):
         # `sentry_version` to be set in querystring
         auth = helper.auth_from_request(request)
 
-        project_ = helper.project_from_auth(auth)
-        if project_ != project:
-            raise APIError('Two different project were specified')
+        project_id = helper.project_id_from_auth(auth)
+        if project_id != project.id:
+            raise APIError('Two different projects were specified')
 
         helper.context.bind_auth(auth)
         Raven.tags_context(helper.context.get_tags_context())
@@ -479,17 +510,6 @@ class CspReportView(StoreView):
 
         if not is_valid_origin(origin, project):
             raise APIForbidden('Invalid document-uri')
-
-        # An invalid CSP report must go against quota
-        if not is_valid_csp_report(report, project):
-            app.tsdb.incr_multi([
-                (app.tsdb.models.project_total_received, project.id),
-                (app.tsdb.models.project_total_blacklisted, project.id),
-                (app.tsdb.models.organization_total_received, project.organization_id),
-                (app.tsdb.models.organization_total_blacklisted, project.organization_id),
-            ])
-            metrics.incr('events.blacklisted')
-            raise APIForbidden('Rejected CSP report')
 
         # Attach on collected meta data. This data obviously isn't a part
         # of the spec, but we need to append to the report sentry specific things.

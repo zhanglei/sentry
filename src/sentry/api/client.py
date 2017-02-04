@@ -44,6 +44,8 @@ class ApiClient(object):
 
         rf = APIRequestFactory()
         mock_request = getattr(rf, method.lower())(full_path, data or {})
+        # Flag to our API class that we should trust this auth passed through
+        mock_request.__from_api_client__ = True
 
         if request:
             mock_request.auth = getattr(request, 'auth', None)
@@ -58,11 +60,13 @@ class ApiClient(object):
                 mock_request.is_superuser = lambda: request.is_superuser()
             else:
                 mock_request.is_superuser = lambda: is_superuser
+            mock_request.session = request.session
         else:
             mock_request.auth = auth
             mock_request.user = user
             mock_request.is_sudo = lambda: is_sudo
             mock_request.is_superuser = lambda: is_superuser
+            mock_request.session = {}
 
         if request:
             # superuser checks require access to IP

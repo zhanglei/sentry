@@ -1,14 +1,16 @@
 from __future__ import absolute_import
+import posixpath
 
 from rest_framework import serializers
 from rest_framework.response import Response
 
 from sentry.api.base import DocSection
-from sentry.api.bases.project import ProjectEndpoint
+from sentry.api.bases.project import ProjectEndpoint, ProjectReleasePermission
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import serialize
 from sentry.models import Release, ReleaseFile
 from sentry.utils.apidocs import scenario, attach_scenarios
+from django.http import CompatibleStreamingHttpResponse
 
 
 @scenario('RetrieveReleaseFile')
@@ -68,6 +70,18 @@ class ReleaseFileSerializer(serializers.Serializer):
 
 class ReleaseFileDetailsEndpoint(ProjectEndpoint):
     doc_section = DocSection.RELEASES
+    permission_classes = (ProjectReleasePermission,)
+
+    def download(self, releasefile):
+        file = releasefile.file
+        fp = file.getfile()
+        response = CompatibleStreamingHttpResponse(
+            iter(lambda: fp.read(4096), b''),
+            content_type=file.headers.get('content-type', 'application/octet-stream'),
+        )
+        response['Content-Length'] = file.size
+        response['Content-Disposition'] = 'attachment; filename="%s"' % posixpath.basename(" ".join(releasefile.name.split()))
+        return response
 
     @attach_scenarios([retrieve_file_scenario])
     def get(self, request, project, version, file_id):
@@ -89,7 +103,8 @@ class ReleaseFileDetailsEndpoint(ProjectEndpoint):
         """
         try:
             release = Release.objects.get(
-                project=project,
+                organization_id=project.organization_id,
+                projects=project,
                 version=version,
             )
         except Release.DoesNotExist:
@@ -103,6 +118,12 @@ class ReleaseFileDetailsEndpoint(ProjectEndpoint):
         except ReleaseFile.DoesNotExist:
             raise ResourceDoesNotExist
 
+        download_requested = request.GET.get('download') is not None
+        if download_requested and (
+           request.access.has_scope('project:write')):
+            return self.download(releasefile)
+        elif download_requested:
+            return Response(status=403)
         return Response(serialize(releasefile, request.user))
 
     @attach_scenarios([update_file_scenario])
@@ -125,7 +146,8 @@ class ReleaseFileDetailsEndpoint(ProjectEndpoint):
         """
         try:
             release = Release.objects.get(
-                project=project,
+                organization_id=project.organization_id,
+                projects=project,
                 version=version,
             )
         except Release.DoesNotExist:
@@ -172,7 +194,8 @@ class ReleaseFileDetailsEndpoint(ProjectEndpoint):
         """
         try:
             release = Release.objects.get(
-                project=project,
+                organization_id=project.organization_id,
+                projects=project,
                 version=version,
             )
         except Release.DoesNotExist:

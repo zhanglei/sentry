@@ -27,6 +27,8 @@ const Frame = React.createClass({
     platform: React.PropTypes.string,
     isExpanded: React.PropTypes.bool,
     emptySourceNotation: React.PropTypes.bool,
+    isOnlyFrame: React.PropTypes.bool,
+    timesRepeated: React.PropTypes.number,
   },
 
   mixins: [
@@ -71,7 +73,7 @@ const Frame = React.createClass({
 
   isExpandable() {
     return (
-      this.props.emptySourceNotation
+      (!this.props.isOnlyFrame && this.props.emptySourceNotation)
       || this.hasContextSource()
       || this.hasContextVars()
     );
@@ -113,6 +115,10 @@ const Frame = React.createClass({
     }
   },
 
+  preventCollapse(evt) {
+    evt.stopPropagation();
+  },
+
   renderDefaultTitle() {
     let data = this.props.data;
     let title = [];
@@ -122,8 +128,9 @@ const Frame = React.createClass({
 
     if (defined(data.filename || data.module)) {
       // prioritize module name for Java as filename is often only basename
+      let shouldPrioritizeModuleName = this.shouldPrioritizeModuleName();
       let pathName = (
-        this.shouldPrioritizeModuleName() ?
+        shouldPrioritizeModuleName ?
         (data.module || data.filename) :
         (data.filename || data.module));
 
@@ -132,8 +139,19 @@ const Frame = React.createClass({
           <Truncate value={pathName} maxLength={100} leftTrim={true} />
         </code>
       ));
+
+      // in case we prioritized the module name but we also have a filename info
+      // we want to show a litle (?) icon that on hover shows the actual filename
+      if (shouldPrioritizeModuleName && data.filename) {
+        title.push(
+          <a key="real-filename" className="in-at tip real-filename" data-title={_.escape(data.filename)}>
+            <span className="icon-question" />
+          </a>
+        );
+      }
+
       if (isUrl(data.absPath)) {
-        title.push(<a href={data.absPath} className="icon-open" key="share" target="_blank" />);
+        title.push(<a href={data.absPath} className="icon-open" key="share" target="_blank" onClick={this.preventCollapse}/>);
       }
       if (defined(data.function)) {
         title.push(<span className="in-at" key="in"> in </span>);
@@ -227,6 +245,7 @@ const Frame = React.createClass({
     }
     return (
       <a
+        key="expander"
         title={t('Toggle context')}
         onClick={this.toggleContext}
         className="btn btn-sm btn-default btn-toggle">
@@ -246,9 +265,19 @@ const Frame = React.createClass({
           {'Called from: '}
         </span>
       );
-    } else {
-      return null;
-    }
+    } else return null;
+  },
+
+  renderRepeats() {
+    if (this.props.timesRepeated > 0) {
+      return (
+        <span className="repeated-frames"
+          title={`Frame repeated ${this.props.timesRepeated} times`}>
+            <span className="icon-refresh"/>
+            <span>{this.props.timesRepeated}</span>
+        </span>
+      );
+    } else return null;
   },
 
   renderDefaultLine() {
@@ -257,6 +286,7 @@ const Frame = React.createClass({
         <div className="title">
           {this.renderLeadHint()}
           {this.renderDefaultTitle()}
+          {this.renderRepeats()}
         </div>
       </StrictClick>
     );
@@ -306,7 +336,6 @@ const Frame = React.createClass({
 
   render() {
     let data = this.props.data;
-
     let className = classNames({
       'frame': true,
       'is-expandable': this.isExpandable(),

@@ -2,8 +2,9 @@ from __future__ import absolute_import
 
 from mock import patch
 
-from sentry.testutils import requires_llvm_symbolizer, TestCase
-from sentry.lang.native.plugin import resolve_frame_symbols
+from sentry.testutils import TestCase
+from sentry.lang.native.plugin import NativeStacktraceProcessor
+from sentry.stacktraces import process_stacktraces
 
 
 OBJECT_NAME = (
@@ -20,7 +21,7 @@ SDK_INFO = {
 }
 
 
-def patched_symbolize_app_frame(self, frame):
+def patched_symbolize_app_frame(self, frame, img):
     if frame['instruction_addr'] == 4295123760:
         return {
             'filename': 'Foo.swift',
@@ -33,7 +34,7 @@ def patched_symbolize_app_frame(self, frame):
         }
 
 
-def patched_symbolize_system_frame(self, frame, sdk_info):
+def patched_symbolize_system_frame(self, frame, img, sdk_info):
     assert sdk_info == SDK_INFO
     if frame['instruction_addr'] == 4295123360:
         return {
@@ -44,7 +45,6 @@ def patched_symbolize_system_frame(self, frame, sdk_info):
         }
 
 
-@requires_llvm_symbolizer
 class BasicResolvingFileTest(TestCase):
 
     @patch('sentry.lang.native.symbolizer.Symbolizer.symbolize_app_frame',
@@ -70,6 +70,17 @@ class BasicResolvingFileTest(TestCase):
                         "cpu_type": 16777228,
                         "image_size": 32768,
                         "name": OBJECT_NAME,
+                    },
+                    {
+                        "type": "apple",
+                        "cpu_subtype": 0,
+                        "cpu_type": 16777228,
+                        "uuid": "B78CB4FB-3A90-4039-9EFD-C58932803AE5",
+                        "image_vmaddr": 0,
+                        "image_addr": 4295092368,
+                        "cpu_type": 16777228,
+                        "image_size": 32768,
+                        'name': '/usr/lib/whatever.dylib',
                     }
                 ],
                 "sdk_info": SDK_INFO,
@@ -154,7 +165,10 @@ class BasicResolvingFileTest(TestCase):
             }
         }
 
-        resolve_frame_symbols(event_data)
+        def make_processors(data, infos):
+            return [NativeStacktraceProcessor(data, infos)]
+        event_data = process_stacktraces(
+            event_data, make_processors=make_processors)
 
         bt = event_data['sentry.interfaces.Exception']['values'][0]['stacktrace']
         frames = bt['frames']

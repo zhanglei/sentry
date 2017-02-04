@@ -15,6 +15,7 @@ import six
 from django.http import HttpResponseRedirect
 from threading import local
 
+from sentry.plugins.config import PluginConfigMixin
 from sentry.plugins.base.response import Response
 from sentry.plugins.base.configuration import (
     default_plugin_config, default_plugin_options,
@@ -36,7 +37,7 @@ class PluginMount(type):
         return new_cls
 
 
-class IPlugin2(local):
+class IPlugin2(local, PluginConfigMixin):
     """
     Plugin interface. Should not be inherited from directly.
 
@@ -78,6 +79,9 @@ class IPlugin2(local):
 
     def _get_option_key(self, key):
         return '%s:%s' % (self.get_conf_key(), key)
+
+    def get_plugin_type(self):
+        return 'default'
 
     def is_enabled(self, project=None):
         """
@@ -273,7 +277,7 @@ class IPlugin2(local):
 
         >>> def get_resource_links(self):
         >>>     return [
-        >>>         ('Documentation', 'https://docs.getsentry.com'),
+        >>>         ('Documentation', 'https://docs.sentry.io'),
         >>>         ('Bug Tracker', 'https://github.com/getsentry/sentry/issues'),
         >>>         ('Source', 'https://github.com/getsentry/sentry'),
         >>>     ]
@@ -345,7 +349,7 @@ class IPlugin2(local):
         """
         return []
 
-    def get_event_preprocessors(self, **kwargs):
+    def get_event_preprocessors(self, data, **kwargs):
         """
         Return a list of preprocessors to apply to the given event.
 
@@ -353,10 +357,31 @@ class IPlugin2(local):
         input and returns modified data as output. If no changes to the data are
         made it is safe to return ``None``.
 
-        >>> def get_event_preprocessors(self, **kwargs):
+        Preprocessors should not be returned if there is nothing to
+        do with the event data.
+
+        >>> def get_event_preprocessors(self, data, **kwargs):
         >>>     return [lambda x: x]
         """
         return []
+
+    def get_stacktrace_processors(self, data, stacktrace_infos,
+                                  platforms, **kwargs):
+        """
+        This works similarly to `get_event_preprocessors` but returns a
+        function that is invoked for all encountered stacktraces in an
+        event.
+
+        Preprocessors should not be returned if there is nothing to
+        do with the event data.
+
+        :::
+
+            def get_stacktrace_processors(self, data, stacktrace_infos,
+                                          platforms, **kwargs):
+                if 'cocoa' in platforms:
+                    return [CocoaProcessor(data, stacktrace_infos)]
+        """
 
     def get_feature_hooks(self, **kwargs):
         """

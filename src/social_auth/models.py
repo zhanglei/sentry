@@ -38,12 +38,12 @@ class UserSocialAuth(models.Model):
 
     class Meta:
         """Meta data"""
-        unique_together = ('provider', 'uid')
+        unique_together = ('provider', 'uid', 'user')
         app_label = 'social_auth'
 
     def __unicode__(self):
         """Return associated user unicode representation"""
-        return u'%s - %s' % (unicode(self.user), self.provider.title())
+        return u'%s - %s' % (six.text_type(self.user), self.provider.title())
 
     def get_backend(self):
         # Make import here to avoid recursive imports :-/
@@ -117,21 +117,6 @@ class UserSocialAuth(models.Model):
         return CLEAN_USERNAME_REGEX.sub('', value)
 
     @classmethod
-    def allowed_to_disconnect(cls, user, backend_name, association_id=None):
-        if association_id is not None:
-            qs = cls.objects.exclude(id=association_id)
-        else:
-            qs = cls.objects.exclude(provider=backend_name)
-        qs = qs.filter(user=user)
-
-        if hasattr(user, 'has_usable_password'):
-            valid_password = user.has_usable_password()
-        else:
-            valid_password = True
-
-        return valid_password or qs.count() > 0
-
-    @classmethod
     def user_username(cls, user):
         if hasattr(user, 'USERNAME_FIELD'):
             # Django 1.5 custom user model, 'username' is just for internal
@@ -192,14 +177,19 @@ class UserSocialAuth(models.Model):
     @classmethod
     def create_social_auth(cls, user, uid, provider):
         if not isinstance(uid, six.string_types):
-            uid = str(uid)
+            uid = six.text_type(uid)
         return cls.objects.create(user=user, uid=uid, provider=provider)
 
     @classmethod
-    def get_social_auth(cls, provider, uid):
+    def get_social_auth(cls, provider, uid, user):
         try:
-            return cls.objects.select_related('user').get(provider=provider,
-                                                          uid=uid)
+            instance = cls.objects.get(
+                provider=provider,
+                uid=uid,
+                user=user,
+            )
+            instance.user = user
+            return instance
         except UserSocialAuth.DoesNotExist:
             return None
 

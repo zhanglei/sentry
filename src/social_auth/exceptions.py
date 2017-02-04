@@ -22,11 +22,6 @@ class WrongBackend(BackendError):
             self.backend_name
 
 
-class NotAllowedToDisconnect(SocialAuthBaseException):
-    """User is not allowed to disconnect it's social account."""
-    pass
-
-
 class StopPipeline(SocialAuthBaseException):
     """Stop pipeline process exception.
     Raise this exception to stop the rest of the pipeline process.
@@ -92,11 +87,6 @@ class AuthStateForbidden(AuthException):
     """State parameter is incorrect."""
     def __unicode__(self):
         return ugettext(u'Wrong state parameter given.')
-
-
-class AuthAlreadyAssociated(AuthException):
-    """A different user has already associated the target social account"""
-    pass
 
 
 class AuthTokenRevoked(AuthException):

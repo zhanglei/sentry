@@ -60,6 +60,7 @@ class SingleException(Interface):
                 data['raw_stacktrace'],
                 has_system_frames=has_system_frames,
                 slim_frames=slim_frames,
+                raw=True
             )
         else:
             raw_stacktrace = None
@@ -149,7 +150,7 @@ class SingleException(Interface):
             if output and self.type:
                 output.append(self.type)
         if not output:
-            output = filter(bool, [self.type, self.value])
+            output = [s for s in [self.type, self.value] if s]
         return output
 
 
@@ -202,6 +203,9 @@ class Exception(Interface):
 
         if not data['values']:
             raise InterfaceValidationError("No 'values' present")
+
+        if not isinstance(data['values'], list):
+            raise InterfaceValidationError("Invalid value for 'values'")
 
         has_system_frames = cls.data_has_system_frames(data)
 

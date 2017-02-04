@@ -17,7 +17,6 @@ import pkg_resources
 import six
 from django.conf import settings
 from django.core.context_processors import csrf
-from django.core.urlresolvers import reverse
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_protect
@@ -28,18 +27,19 @@ from sentry.models import Project, User
 from sentry.plugins import plugins
 from sentry.utils.email import send_mail
 from sentry.utils.http import absolute_uri
-from sentry.utils.warnings import DeprecatedSettingWarning, seen_warnings
+from sentry.utils.warnings import DeprecatedSettingWarning, UnsupportedBackend, seen_warnings
 from sentry.web.decorators import requires_admin
 from sentry.web.forms import (
     ChangeUserForm, NewUserForm, RemoveUserForm, TestEmailForm
 )
+from sentry.utils import auth
 from sentry.web.helpers import render_to_response, render_to_string
 
 
 def configure_plugin(request, slug):
     plugin = plugins.get(slug)
     if not plugin.has_site_conf():
-        return HttpResponseRedirect(reverse('sentry'))
+        return HttpResponseRedirect(auth.get_login_url())
 
     view = plugin.configure(request=request)
     if isinstance(view, HttpResponse):
@@ -58,7 +58,7 @@ def configure_plugin(request, slug):
 @csrf_protect
 def create_new_user(request):
     if not request.is_superuser():
-        return HttpResponseRedirect(reverse('sentry'))
+        return HttpResponseRedirect(auth.get_login_url())
 
     form = NewUserForm(request.POST or None, initial={
         'send_welcome_mail': True,
@@ -77,7 +77,7 @@ def create_new_user(request):
             context = {
                 'username': user.username,
                 'password': password,
-                'url': absolute_uri(reverse('sentry')),
+                'url': absolute_uri(auth.get_login_url()),
             }
             body = render_to_string('sentry/emails/welcome_mail.txt', context, request)
 
@@ -91,7 +91,7 @@ def create_new_user(request):
                 logger = logging.getLogger('sentry.mail.errors')
                 logger.exception(e)
 
-        return HttpResponseRedirect(reverse('sentry-admin-users'))
+        return HttpResponseRedirect(absolute_uri('/manage/users/'))
 
     context = {
         'form': form,
@@ -105,17 +105,17 @@ def create_new_user(request):
 @csrf_protect
 def edit_user(request, user_id):
     if not request.is_superuser():
-        return HttpResponseRedirect(reverse('sentry'))
+        return HttpResponseRedirect(auth.get_login_url())
 
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
-        return HttpResponseRedirect(reverse('sentry-admin-users'))
+        return HttpResponseRedirect(absolute_uri('/manage/users/'))
 
     form = ChangeUserForm(request.POST or None, instance=user)
     if form.is_valid():
         user = form.save()
-        return HttpResponseRedirect(reverse('sentry-admin-users'))
+        return HttpResponseRedirect(absolute_uri('/manage/users/'))
 
     project_list = Project.objects.filter(
         status=0,
@@ -136,12 +136,12 @@ def edit_user(request, user_id):
 @csrf_protect
 def remove_user(request, user_id):
     if six.text_type(user_id) == six.text_type(request.user.id):
-        return HttpResponseRedirect(reverse('sentry-admin-users'))
+        return HttpResponseRedirect(absolute_uri('/manage/users/'))
 
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
-        return HttpResponseRedirect(reverse('sentry-admin-users'))
+        return HttpResponseRedirect(absolute_uri('/manage/users/'))
 
     form = RemoveUserForm(request.POST or None)
     if form.is_valid():
@@ -150,7 +150,7 @@ def remove_user(request, user_id):
         else:
             User.objects.filter(pk=user.pk).update(is_active=False)
 
-        return HttpResponseRedirect(reverse('sentry-admin-users'))
+        return HttpResponseRedirect(absolute_uri('/manage/users/'))
 
     context = csrf(request)
     context.update({
@@ -209,6 +209,7 @@ def status_packages(request):
 def status_warnings(request):
     groupings = {
         DeprecatedSettingWarning: 'Deprecated Settings',
+        UnsupportedBackend: 'Unsupported Backends',
     }
 
     groups = defaultdict(list)
@@ -220,12 +221,12 @@ def status_warnings(request):
         else:
             warnings.append(warning)
 
-    sort_by_message = functools.partial(sorted, key=str)
+    sort_by_message = functools.partial(sorted, key=six.binary_type)
 
     return render_to_response(
         'sentry/admin/status/warnings.html',
         {
-            'groups': [(groupings[key], sort_by_message(values)) for key, values in groups.items()],
+            'groups': sorted([(groupings[key], sort_by_message(values)) for key, values in groups.items()]),
             'warnings': sort_by_message(warnings),
         },
         request,

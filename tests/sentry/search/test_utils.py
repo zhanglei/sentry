@@ -1,9 +1,11 @@
 from __future__ import absolute_import
 
+import pytest
+
 from datetime import datetime, timedelta
 from django.utils import timezone
 
-from sentry.models import EventUser, GroupStatus
+from sentry.models import EventUser, GroupStatus, Release
 from sentry.testutils import TestCase
 from sentry.search.base import ANY
 from sentry.search.utils import parse_query
@@ -77,9 +79,41 @@ class ParseQueryTest(TestCase):
         result = self.parse_query('first-release:bar')
         assert result == {'first_release': 'bar', 'tags': {}, 'query': ''}
 
+    def test_first_release_latest(self):
+        old = Release.objects.create(
+            organization_id=self.project.organization_id,
+            version='a'
+        )
+        old.add_project(self.project)
+        new = Release.objects.create(
+            version='b',
+            organization_id=self.project.organization_id,
+            date_released=old.date_added + timedelta(minutes=1),
+        )
+        new.add_project(self.project)
+
+        result = self.parse_query('first-release:latest')
+        assert result == {'tags': {}, 'first_release': new.version, 'query': ''}
+
     def test_release(self):
         result = self.parse_query('release:bar')
         assert result == {'tags': {'sentry:release': 'bar'}, 'query': ''}
+
+    def test_release_latest(self):
+        old = Release.objects.create(
+            organization_id=self.project.organization_id,
+            version='a'
+        )
+        old.add_project(self.project)
+        new = Release.objects.create(
+            version='b',
+            organization_id=self.project.organization_id,
+            date_released=old.date_added + timedelta(minutes=1),
+        )
+        new.add_project(self.project)
+
+        result = self.parse_query('release:latest')
+        assert result == {'tags': {'sentry:release': new.version}, 'query': ''}
 
     def test_padded_spacing(self):
         result = self.parse_query('release:bar  foo   bar')
@@ -142,6 +176,13 @@ class ParseQueryTest(TestCase):
         assert result['age_to'] > timezone.now() - timedelta(hours=13)
         assert result['age_to'] < timezone.now() - timedelta(hours=11)
 
+    def test_first_seen_range(self):
+        result = self.parse_query('firstSeen:-24h firstSeen:+12h')
+        assert result['age_from'] > timezone.now() - timedelta(hours=25)
+        assert result['age_from'] < timezone.now() - timedelta(hours=23)
+        assert result['age_to'] > timezone.now() - timedelta(hours=13)
+        assert result['age_to'] < timezone.now() - timedelta(hours=11)
+
     def test_date_range(self):
         result = self.parse_query('event.timestamp:>2016-01-01 event.timestamp:<2016-01-02')
         assert result['date_from'] == datetime(2016, 1, 1, tzinfo=timezone.utc)
@@ -165,6 +206,20 @@ class ParseQueryTest(TestCase):
         assert result['date_to'] == date_value + timedelta(minutes=6)
         assert not result['date_to_inclusive']
 
+    def test_active_range(self):
+        result = self.parse_query('activeSince:-24h activeSince:+12h')
+        assert result['active_at_from'] > timezone.now() - timedelta(hours=25)
+        assert result['active_at_from'] < timezone.now() - timedelta(hours=23)
+        assert result['active_at_to'] > timezone.now() - timedelta(hours=13)
+        assert result['active_at_to'] < timezone.now() - timedelta(hours=11)
+
+    def test_last_seen_range(self):
+        result = self.parse_query('lastSeen:-24h lastSeen:+12h')
+        assert result['last_seen_from'] > timezone.now() - timedelta(hours=25)
+        assert result['last_seen_from'] < timezone.now() - timedelta(hours=23)
+        assert result['last_seen_to'] > timezone.now() - timedelta(hours=13)
+        assert result['last_seen_to'] < timezone.now() - timedelta(hours=11)
+
     def test_has_tag(self):
         result = self.parse_query('has:foo')
         assert result['tags']['foo'] == ANY
@@ -176,3 +231,13 @@ class ParseQueryTest(TestCase):
     def test_has_release(self):
         result = self.parse_query('has:release')
         assert result['tags']['sentry:release'] == ANY
+
+    def test_quoted_string(self):
+        result = self.parse_query('"release:foo"')
+        assert result == {'tags': {}, 'query': 'release:foo'}
+
+    # TODO(dcramer): it'd be nice to support this without quotes
+    @pytest.mark.xfail
+    def test_invalid_tag_as_query(self):
+        result = self.parse_query('Resque::DirtyExit')
+        assert result == {'tags': {}, 'query': 'Resque::DirtyExit'}

@@ -7,7 +7,9 @@ from sentry.api.base import DocSection
 from sentry.api.bases.project import ProjectEndpoint, ProjectReleasePermission
 from sentry.api.exceptions import ResourceDoesNotExist
 from sentry.api.serializers import serialize
-from sentry.models import Group, Release, ReleaseFile
+from sentry.api.serializers.rest_framework import CommitSerializer, ListField
+from sentry.models import Activity, Group, Release, ReleaseFile
+from sentry.plugins.interfaces.releasehook import ReleaseHook
 from sentry.utils.apidocs import scenario, attach_scenarios
 
 ERR_RELEASE_REFERENCED = "This release is referenced by active issues and cannot be removed."
@@ -57,6 +59,7 @@ class ReleaseSerializer(serializers.Serializer):
     url = serializers.URLField(required=False)
     dateStarted = serializers.DateTimeField(required=False)
     dateReleased = serializers.DateTimeField(required=False)
+    commits = ListField(child=CommitSerializer(), required=False)
 
 
 class ReleaseDetailsEndpoint(ProjectEndpoint):
@@ -80,13 +83,14 @@ class ReleaseDetailsEndpoint(ProjectEndpoint):
         """
         try:
             release = Release.objects.get(
-                project=project,
+                organization_id=project.organization_id,
+                projects=project,
                 version=version,
             )
         except Release.DoesNotExist:
             raise ResourceDoesNotExist
 
-        return Response(serialize(release, request.user))
+        return Response(serialize(release, request.user, project=project))
 
     @attach_scenarios([update_release_scenario])
     def put(self, request, project, version):
@@ -114,10 +118,10 @@ class ReleaseDetailsEndpoint(ProjectEndpoint):
                                       the current time is assumed.
         :auth: required
         """
-        # TODO(dcramer): handle Activity creation
         try:
             release = Release.objects.get(
-                project=project,
+                organization_id=project.organization_id,
+                projects=project,
                 version=version,
             )
         except Release.DoesNotExist:
@@ -129,6 +133,8 @@ class ReleaseDetailsEndpoint(ProjectEndpoint):
             return Response(serializer.errors, status=400)
 
         result = serializer.object
+
+        was_released = bool(release.date_released)
 
         kwargs = {}
         if result.get('dateStarted'):
@@ -142,6 +148,22 @@ class ReleaseDetailsEndpoint(ProjectEndpoint):
 
         if kwargs:
             release.update(**kwargs)
+
+        commit_list = result.get('commits')
+        if commit_list:
+            hook = ReleaseHook(project)
+            # TODO(dcramer): handle errors with release payloads
+            hook.set_commits(release.version, commit_list)
+
+        if (not was_released and release.date_released):
+            activity = Activity.objects.create(
+                type=Activity.RELEASE,
+                project=project,
+                ident=release.version,
+                data={'version': release.version},
+                datetime=release.date_released,
+            )
+            activity.send_notification()
 
         return Response(serialize(release, request.user))
 
@@ -162,7 +184,8 @@ class ReleaseDetailsEndpoint(ProjectEndpoint):
         """
         try:
             release = Release.objects.get(
-                project=project,
+                organization_id=project.organization_id,
+                projects=project,
                 version=version,
             )
         except Release.DoesNotExist:

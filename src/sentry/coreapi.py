@@ -16,27 +16,41 @@ import six
 import uuid
 import zlib
 
+from collections import MutableMapping
 from datetime import datetime, timedelta
 from django.utils.crypto import constant_time_compare
-from django.utils.encoding import smart_bytes
 from gzip import GzipFile
-from six import StringIO
+from six import BytesIO
 from time import time
 
-from sentry.app import env
+from sentry import filters
 from sentry.cache import default_cache
 from sentry.constants import (
     CLIENT_RESERVED_ATTRS, DEFAULT_LOG_LEVEL, LOG_LEVELS_MAP,
     MAX_TAG_VALUE_LENGTH, MAX_TAG_KEY_LENGTH, VALID_PLATFORMS
 )
+from sentry.db.models import BoundedIntegerField
 from sentry.interfaces.base import get_interface, InterfaceValidationError
 from sentry.interfaces.csp import Csp
-from sentry.models import EventError, Project, ProjectKey, TagKey, TagValue
+from sentry.event_manager import EventManager
+from sentry.models import EventError, ProjectKey, TagKey, TagValue
 from sentry.tasks.store import preprocess_event
 from sentry.utils import json
 from sentry.utils.auth import parse_auth_header
+from sentry.utils.csp import is_valid_csp_report
+from sentry.utils.http import is_valid_ip, origin_from_request
 from sentry.utils.strings import decompress
 from sentry.utils.validators import is_float, is_event_id
+
+try:
+    # Attempt to load ujson if it's installed.
+    # It's advantageous to leverage here because this is
+    # our primary data ingestion endpoint, and it's a
+    # simple win. ujson differs from simplejson a bunch
+    # so it's not worth utilizing it anywhere else.
+    import ujson as json  # noqa
+except ImportError:
+    from sentry.utils import json
 
 
 class APIError(Exception):
@@ -151,7 +165,6 @@ class ClientLogHelper(object):
         tags.update(context.get_tags_context())
         tags['project'] = project_label
 
-        extra['request'] = env.request
         extra['tags'] = tags
         extra['agent'] = context.agent
         extra['protocol'] = context.version
@@ -196,10 +209,16 @@ class ClientApiHelper(object):
         """
         Returns either the Origin or Referer value from the request headers.
         """
-        return request.META.get('HTTP_ORIGIN', request.META.get('HTTP_REFERER'))
+        return origin_from_request(request)
 
-    def project_from_auth(self, auth):
+    def project_id_from_auth(self, auth):
         if not auth.public_key:
+            raise APIUnauthorized('Invalid api key')
+
+        # Make sure the key even looks valid first, since it's
+        # possible to get some garbage input here causing further
+        # issues trying to query it from cache or the database.
+        if not ProjectKey.looks_like_api_key(auth.public_key):
             raise APIUnauthorized('Invalid api key')
 
         try:
@@ -217,11 +236,22 @@ class ClientApiHelper(object):
         if not pk.roles.store:
             raise APIUnauthorized('Key does not allow event storage access')
 
-        return Project.objects.get_from_cache(id=pk.project_id)
+        return pk.project_id
+
+    def decode_data(self, encoded_data):
+        try:
+            return encoded_data.decode('utf-8')
+        except UnicodeDecodeError as e:
+            # This error should be caught as it suggests that there's a
+            # bug somewhere in the client's code.
+            self.log.debug(six.text_type(e), exc_info=True)
+            raise APIError('Bad data decoding request (%s, %s)' % (
+                type(e).__name__, e
+            ))
 
     def decompress_deflate(self, encoded_data):
         try:
-            return zlib.decompress(encoded_data)
+            return zlib.decompress(encoded_data).decode('utf-8')
         except Exception as e:
             # This error should be caught as it suggests that there's a
             # bug somewhere in the client's code.
@@ -232,10 +262,10 @@ class ClientApiHelper(object):
 
     def decompress_gzip(self, encoded_data):
         try:
-            fp = StringIO(encoded_data)
+            fp = BytesIO(encoded_data)
             try:
                 f = GzipFile(fileobj=fp)
-                return f.read()
+                return f.read().decode('utf-8')
             finally:
                 f.close()
         except Exception as e:
@@ -249,9 +279,9 @@ class ClientApiHelper(object):
     def decode_and_decompress_data(self, encoded_data):
         try:
             try:
-                return decompress(encoded_data)
+                return decompress(encoded_data).decode('utf-8')
             except zlib.error:
-                return base64.b64decode(encoded_data)
+                return base64.b64decode(encoded_data).decode('utf-8')
         except Exception as e:
             # This error should be caught as it suggests that there's a
             # bug somewhere in the client's code.
@@ -262,6 +292,8 @@ class ClientApiHelper(object):
 
     def safely_load_json_string(self, json_string):
         try:
+            if isinstance(json_string, six.binary_type):
+                json_string = json_string.decode('utf-8')
             obj = json.loads(json_string)
             assert isinstance(obj, dict)
         except Exception as e:
@@ -271,9 +303,7 @@ class ClientApiHelper(object):
             raise APIError('Bad data reconstructing object (%s, %s)' %
                 (type(e).__name__, e)
             )
-
-        # XXX: ensure keys are coerced to strings
-        return dict((smart_bytes(k), v) for k, v in six.iteritems(obj))
+        return obj
 
     def _process_data_timestamp(self, data, current_datetime=None):
         value = data['timestamp']
@@ -340,6 +370,20 @@ class ClientApiHelper(object):
             'name': name,
             'version': version,
         }
+
+    def should_filter(self, project, data, ip_address=None):
+        # TODO(dcramer): read filters from options such as:
+        # - ignore errors from spiders/bots
+        # - ignore errors from legacy browsers
+        if ip_address and not is_valid_ip(ip_address, project):
+            return True
+
+        for filter_cls in filters.all():
+            filter_obj = filter_cls(project)
+            if filter_obj.is_enabled() and filter_obj.test(data):
+                return True
+
+        return False
 
     def validate_data(self, project, data):
         # TODO(dcramer): move project out of the data packet
@@ -525,7 +569,7 @@ class ClientApiHelper(object):
                 tags.append((k, v))
             data['tags'] = tags
 
-        for k in data.keys():
+        for k in list(iter(data)):
             if k in CLIENT_RESERVED_ATTRS:
                 continue
 
@@ -640,6 +684,35 @@ class ClientApiHelper(object):
                 })
                 del data['release']
 
+        if data.get('environment'):
+            data['environment'] = six.text_type(data['environment'])
+            if len(data['environment']) > 64:
+                data['errors'].append({
+                    'type': EventError.VALUE_TOO_LONG,
+                    'name': 'environment',
+                    'value': data['environment'],
+                })
+                del data['environment']
+
+        if data.get('time_spent'):
+            try:
+                data['time_spent'] = int(data['time_spent'])
+            except (ValueError, TypeError):
+                data['errors'].append({
+                    'type': EventError.INVALID_DATA,
+                    'name': 'time_spent',
+                    'value': data['time_spent'],
+                })
+                del data['time_spent']
+            else:
+                if data['time_spent'] > BoundedIntegerField.MAX_VALUE:
+                    data['errors'].append({
+                        'type': EventError.VALUE_TOO_LONG,
+                        'name': 'time_spent',
+                        'value': data['time_spent'],
+                    })
+                    del data['time_spent']
+
         return data
 
     def ensure_does_not_have_ip(self, data):
@@ -669,6 +742,9 @@ class ClientApiHelper(object):
             data.setdefault('sentry.interfaces.User', {})['ip_address'] = ip_address
 
     def insert_data_to_database(self, data):
+        # we might be passed LazyData
+        if isinstance(data, LazyData):
+            data = dict(data.items())
         cache_key = 'e:{1}:{0}'.format(data['project'], data['event_id'])
         default_cache.set(cache_key, data, timeout=3600)
         preprocess_event.delay(cache_key=cache_key, start_time=time())
@@ -690,12 +766,20 @@ class CspApiHelper(ClientApiHelper):
         auth.client = request.META.get('HTTP_USER_AGENT')
         return auth
 
+    def should_filter(self, project, data, ip_address=None):
+        if not is_valid_csp_report(data['sentry.interfaces.Csp'], project):
+            return True
+        return super(CspApiHelper, self).should_filter(project, data, ip_address)
+
     def validate_data(self, project, data):
         # pop off our meta data used to hold Sentry specific stuff
         meta = data.pop('_meta', {})
 
         # All keys are sent with hyphens, so we want to conver to underscores
-        report = dict(map(lambda v: (v[0].replace('-', '_'), v[1]), six.iteritems(data)))
+        report = {
+            k.replace('-', '_'): v
+            for k, v in six.iteritems(data)
+        }
 
         try:
             inst = Csp.to_python(report)
@@ -714,7 +798,6 @@ class CspApiHelper(ClientApiHelper):
             'project': project.id,
             'message': inst.get_message(),
             'culprit': inst.get_culprit(),
-            'tags': inst.get_tags(),
             'release': meta.get('release'),
             inst.get_path(): inst.to_json(),
             # This is a bit weird, since we don't have nearly enough
@@ -742,4 +825,121 @@ class CspApiHelper(ClientApiHelper):
                 })
                 del data['release']
 
+        tags = []
+        for k, v in inst.get_tags():
+            if not v:
+                continue
+            if len(v) > MAX_TAG_VALUE_LENGTH:
+                self.log.debug('Discarded invalid tag: %s=%s', k, v)
+                data['errors'].append({
+                    'type': EventError.INVALID_DATA,
+                    'name': 'tags',
+                    'value': (k, v),
+                })
+                continue
+            if not TagValue.is_valid_value(v):
+                self.log.debug('Discard invalid tag value: %s', v)
+                data['errors'].append({
+                    'type': EventError.INVALID_DATA,
+                    'name': 'tags',
+                    'value': (k, v),
+                })
+                continue
+            tags.append((k, v))
+
+        if tags:
+            data['tags'] = tags
+
         return data
+
+
+class LazyData(MutableMapping):
+    def __init__(self, data, content_encoding, helper, project, auth, client_ip):
+        self._data = data
+        self._content_encoding = content_encoding
+        self._helper = helper
+        self._project = project
+        self._auth = auth
+        self._client_ip = client_ip
+        self._decoded = False
+
+    def _decode(self):
+        data = self._data
+        content_encoding = self._content_encoding
+        helper = self._helper
+        project = self._project
+        auth = self._auth
+
+        # TODO(dcramer): CSP is passing already decoded JSON, which sort of
+        # defeats the purpose of a lot of lazy evaluation. It needs refactored
+        # to avoid doing that.
+        if isinstance(data, six.binary_type):
+            if content_encoding == 'gzip':
+                data = helper.decompress_gzip(data)
+            elif content_encoding == 'deflate':
+                data = helper.decompress_deflate(data)
+            elif data[0] != b'{':
+                data = helper.decode_and_decompress_data(data)
+            else:
+                data = helper.decode_data(data)
+        if isinstance(data, six.text_type):
+            data = helper.safely_load_json_string(data)
+
+        # We need data validation/etc to apply as part of LazyData so that
+        # if there are filters present, they can operate on a normalized
+        # version of the data
+
+        # mutates data
+        data = helper.validate_data(project, data)
+
+        if 'sdk' not in data:
+            sdk = helper.parse_client_as_sdk(auth.client)
+            if sdk:
+                data['sdk'] = sdk
+            else:
+                data['sdk'] = {}
+
+        data['sdk']['client_ip'] = self._client_ip
+
+        # we always fill in the IP so that filters and other items can
+        # access it (even if it eventually gets scrubbed)
+        helper.ensure_has_ip(
+            data, self._client_ip, set_if_missing=auth.is_public or
+            data.get('platform') in ('javascript', 'cocoa', 'objc'))
+
+        # mutates data
+        manager = EventManager(data, version=auth.version)
+        manager.normalize()
+
+        self._data = data
+        self._decoded = True
+
+    def __getitem__(self, name):
+        if not self._decoded:
+            self._decode()
+        return self._data[name]
+
+    def __setitem__(self, name, value):
+        if not self._decoded:
+            self._decode()
+        self._data[name] = value
+
+    def __delitem__(self, name):
+        if not self._decoded:
+            self._decode()
+        del self._data[name]
+
+    def __contains__(self, name):
+        if not self._decoded:
+            self._decode()
+        return name in self._data
+
+    def __len__(self):
+        if not self._decoded:
+            self._decode()
+        return len(self._data)
+
+    def __iter__(self):
+        if not self._decoded:
+            self._decode()
+        return iter(self._data)

@@ -30,12 +30,12 @@ except ImportError:
     class ZeroReturnError(Exception):
         pass
 
-USER_AGENT = 'sentry/{version} (https://getsentry.com)'.format(
+USER_AGENT = 'sentry/{version} (https://sentry.io)'.format(
     version=sentry.VERSION,
 )
 
 DISALLOWED_IPS = {
-    ipaddress.ip_network(six.text_type(i))
+    ipaddress.ip_network(six.text_type(i), strict=False)
     for i in settings.SENTRY_DISALLOWED_IPS
 }
 

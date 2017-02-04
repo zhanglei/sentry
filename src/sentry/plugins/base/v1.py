@@ -17,6 +17,7 @@ from django.http import HttpResponseRedirect
 from threading import local
 
 from sentry.auth import access
+from sentry.plugins.config import PluginConfigMixin
 from sentry.plugins.base.response import Response
 from sentry.plugins.base.view import PluggableViewMixin
 from sentry.plugins.base.configuration import (
@@ -34,12 +35,12 @@ class PluginMount(type):
             new_cls.title = new_cls.__name__
         if not new_cls.slug:
             new_cls.slug = new_cls.title.replace(' ', '-').lower()
-        if not hasattr(new_cls, 'logger'):
+        if not hasattr(new_cls, 'logger') or new_cls.logger in [getattr(b, 'logger', None) for b in bases]:
             new_cls.logger = logging.getLogger('sentry.plugins.%s' % (new_cls.slug,))
         return new_cls
 
 
-class IPlugin(local, PluggableViewMixin):
+class IPlugin(local, PluggableViewMixin, PluginConfigMixin):
     """
     Plugin interface. Should not be inherited from directly.
 
@@ -84,6 +85,9 @@ class IPlugin(local, PluggableViewMixin):
 
     def _get_option_key(self, key):
         return '%s:%s' % (self.get_conf_key(), key)
+
+    def get_plugin_type(self):
+        return 'default'
 
     def is_enabled(self, project=None):
         """
@@ -279,7 +283,7 @@ class IPlugin(local, PluggableViewMixin):
 
         >>> def get_resource_links(self):
         >>>     return [
-        >>>         ('Documentation', 'https://docs.getsentry.com'),
+        >>>         ('Documentation', 'https://docs.sentry.io'),
         >>>         ('Bug Tracker', 'https://github.com/getsentry/sentry/issues'),
         >>>         ('Source', 'https://github.com/getsentry/sentry'),
         >>>     ]
@@ -474,6 +478,16 @@ class IPlugin(local, PluggableViewMixin):
 
     def get_url_module(self):
         """Allows a plugin to return the import path to a URL module."""
+
+    def view_configure(self, request, project, **kwargs):
+        if request.method == 'GET':
+            return Response(self.get_configure_plugin_fields(
+                request=request,  # DEPRECATED: this param should not be used
+                project=project,
+                **kwargs
+            ))
+        self.configure(project, request.DATA)
+        return Response({'message': 'Successfully updated configuration.'})
 
 
 @six.add_metaclass(PluginMount)

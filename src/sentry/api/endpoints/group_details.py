@@ -13,11 +13,11 @@ from sentry.api.fields import UserField
 from sentry.api.serializers import serialize
 from sentry.constants import STATUS_CHOICES
 from sentry.models import (
-    Activity, Group, GroupAssignee, GroupSeen, GroupSubscription,
+    Activity, Group, GroupHash, GroupAssignee, GroupSeen, GroupSubscription,
     GroupSubscriptionReason, GroupStatus, GroupTagKey, GroupTagValue, Release,
-    User, UserReport
+    User, UserReport,
 )
-from sentry.plugins import plugins
+from sentry.plugins import IssueTrackingPlugin2, plugins
 from sentry.utils.safe import safe_execute
 from sentry.utils.apidocs import scenario, attach_scenarios
 
@@ -59,6 +59,9 @@ class GroupSerializer(serializers.Serializer):
     isSubscribed = serializers.BooleanField()
     hasSeen = serializers.BooleanField()
     assignedTo = UserField()
+    ignoreDuration = serializers.IntegerField()
+
+    # TODO(dcramer): remove in 9.0
     snoozeDuration = serializers.IntegerField()
 
 
@@ -117,10 +120,21 @@ class GroupDetailsEndpoint(GroupEndpoint):
 
         return action_list
 
+    def _get_available_issue_plugins(self, request, group):
+        project = group.project
+
+        plugin_issues = []
+        for plugin in plugins.for_project(project, version=1):
+            if isinstance(plugin, IssueTrackingPlugin2):
+                plugin_issues = safe_execute(plugin.plugin_issues, request, group, plugin_issues,
+                                             _with_transaction=False)
+        return plugin_issues
+
     def _get_release_info(self, request, group, version):
         try:
             release = Release.objects.get(
-                project=group.project,
+                projects=group.project,
+                organization_id=group.project.organization_id,
                 version=version,
             )
         except Release.DoesNotExist:
@@ -212,6 +226,7 @@ class GroupDetailsEndpoint(GroupEndpoint):
             'seenBy': seen_by,
             'participants': serialize(participants, request.user),
             'pluginActions': action_list,
+            'pluginIssues': self._get_available_issue_plugins(request, group),
             'userReportCount': UserReport.objects.filter(group=group).count(),
             'tags': sorted(serialize(tags, request.user), key=lambda x: x['name']),
             'stats': {
@@ -234,7 +249,7 @@ class GroupDetailsEndpoint(GroupEndpoint):
         :pparam string issue_id: the ID of the group to retrieve.
         :param string status: the new status for the groups.  Valid values
                               are ``"resolved"``, ``"unresolved"`` and
-                              ``"muted"``.
+                              ``"ignored"``.
         :param string assignedTo: the username of the user that should be
                                assigned to this issue.
         :param boolean hasSeen: in case this API call is invoked with a user
@@ -318,6 +333,10 @@ class GroupDetailsEndpoint(GroupEndpoint):
             ]
         ).update(status=GroupStatus.PENDING_DELETION)
         if updated:
-            delete_group.delay(object_id=group.id, countdown=3600)
+            GroupHash.objects.filter(group=group).delete()
+            delete_group.apply_async(
+                kwargs={'object_id': group.id},
+                countdown=3600,
+            )
 
         return Response(status=202)

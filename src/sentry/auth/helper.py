@@ -383,7 +383,6 @@ class AuthHelper(object):
             initial={
                 'username': existing_user.username if existing_user else None,
             },
-            captcha=bool(request.session.get('needs_captcha')),
         )
 
     def _get_display_name(self, identity):
@@ -431,7 +430,8 @@ class AuthHelper(object):
                 ).exists()
                 if has_membership:
                     if not auth.login(request, existing_user,
-                                      after_2fa=request.build_absolute_uri()):
+                                      after_2fa=request.build_absolute_uri(),
+                                      organization_id=self.organization.id):
                         return HttpResponseRedirect(auth.get_login_redirect(
                             self.request))
                     # assume they've confirmed they want to attach the identity
@@ -468,13 +468,12 @@ class AuthHelper(object):
                 # If there is no 2fa we don't need to do this and can just
                 # go on.
                 if not auth.login(request, login_form.get_user(),
-                                  after_2fa=request.build_absolute_uri()):
+                                  after_2fa=request.build_absolute_uri(),
+                                  organization_id=self.organization.id):
                     return HttpResponseRedirect(auth.get_login_redirect(
                         self.request))
-                request.session.pop('needs_captcha', None)
             else:
                 auth.log_auth_failure(request, request.POST.get('username'))
-                request.session['needs_captcha'] = 1
         else:
             op = None
 
@@ -498,7 +497,11 @@ class AuthHelper(object):
         user = auth_identity.user
         user.backend = settings.AUTHENTICATION_BACKENDS[0]
 
-        auth.login(self.request, user)
+        # XXX(dcramer): this is repeated from above
+        if not auth.login(request, user,
+                          after_2fa=request.build_absolute_uri(),
+                          organization_id=self.organization.id):
+            return HttpResponseRedirect(auth.get_login_redirect(self.request))
 
         self.clear_session()
 
@@ -534,7 +537,10 @@ class AuthHelper(object):
         user = auth_identity.user
         user.backend = settings.AUTHENTICATION_BACKENDS[0]
 
-        auth.login(self.request, user)
+        if not auth.login(self.request, user,
+                          after_2fa=self.request.build_absolute_uri(),
+                          organization_id=self.organization.id):
+            return HttpResponseRedirect(auth.get_login_redirect(self.request))
 
         self.clear_session()
 
@@ -617,6 +623,8 @@ class AuthHelper(object):
         )
 
         self._handle_attach_identity(identity, om)
+
+        auth.mark_sso_complete(request, self.organization.id)
 
         AuditLogEntry.objects.create(
             organization=self.organization,

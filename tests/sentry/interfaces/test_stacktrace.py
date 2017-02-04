@@ -244,6 +244,17 @@ class StacktraceTest(TestCase):
             'jipJipManagementApplication',
         ])
 
+    def test_get_hash_ignores_sun_java_generated_methods(self):
+        interface = Frame.to_python({
+            'module': 'sun.reflect.GeneratedMethodAccessor12345',
+            'function': 'invoke',
+        })
+        result = interface.get_hash()
+        self.assertEquals(result, [
+            'sun.reflect.GeneratedMethodAccessor',
+            'invoke',
+        ])
+
     def test_get_hash_sanitizes_erb_templates(self):
         # This is Ruby specific
         interface = Frame.to_python({
@@ -344,6 +355,27 @@ class StacktraceTest(TestCase):
         result = interface.get_hash()
         assert result != []
 
+    def test_get_hash_excludes_single_frame_urls(self):
+        """
+        Browser JS will often throw errors (from inlined code in an HTML page)
+        which contain only a single frame, no function name, and have the HTML
+        document as the filename.
+
+        In this case the hash is often not usable as the context cannot be
+        trusted and the URL is dynamic.
+        """
+        interface = Stacktrace.to_python({
+            'frames': [{
+                'context_line': 'hello world',
+                'abs_path': 'http://foo.com/bar/',
+                'lineno': 107,
+                'filename': '/bar/',
+                'module': '<unknown module>',
+            }],
+        })
+        result = interface.get_hash()
+        assert result == []
+
     def test_cocoa_culprit(self):
         stacktrace = Stacktrace.to_python(dict(frames=[
             {
@@ -351,10 +383,58 @@ class StacktraceTest(TestCase):
                 'package': '/foo/bar/baz.dylib',
                 'lineno': 1,
                 'in_app': True,
+                'function': '-[CRLCrashAsyncSafeThread crash]',
+            }
+        ]))
+        assert stacktrace.get_culprit_string(platform='cocoa') == '-[CRLCrashAsyncSafeThread crash]'
+
+    def test_emoji_culprit(self):
+        stacktrace = Stacktrace.to_python(dict(frames=[
+            {
+                'filename': 'foo/baz.c',
+                'package': '/foo/bar/baz.dylib',
+                'module': u'\U0001f62d',
+                'lineno': 1,
+                'in_app': True,
+                'function': u'\U0001f60d',
+            }
+        ]))
+        assert stacktrace.get_culprit_string(platform='javascript') == u'\U0001f60d(\U0001f62d)'
+
+    def test_exclude_libswiftCore_from_in_app(self):
+        stacktrace = Stacktrace.to_python(dict(frames=[
+            {
+                'filename': 'foo/baz.c',
+                'package': '/foo/bar/libswiftCore.dylib',
+                'lineno': 1,
+                'in_app': True,
                 'function': 'fooBar',
             }
         ]))
-        assert stacktrace.get_culprit_string(platform='cocoa') == 'fooBar (baz)'
+        assert stacktrace.frames[0].in_app is False
+
+    def test_cocoa_strict_stacktrace(self):
+        stacktrace = Stacktrace.to_python(dict(frames=[
+            {
+                'filename': 'foo/baz.c',
+                'package': '/foo/bar/libswiftCore.dylib',
+                'lineno': 1,
+                'in_app': False,
+                'function': 'fooBar',
+            },
+            {
+                'package': '/foo/bar/MyApp',
+                'in_app': True,
+                'function': 'fooBar2',
+            },
+            {
+                'filename': 'Mycontroller.swift',
+                'package': '/foo/bar/MyApp',
+                'in_app': True,
+                'function': '-[CRLCrashAsyncSafeThread crash]',
+            }
+        ]))
+        assert stacktrace.get_culprit_string(platform='cocoa') == '-[CRLCrashAsyncSafeThread crash]'
 
     def test_get_hash_does_not_group_different_js_errors(self):
         interface = Stacktrace.to_python({
@@ -367,6 +447,30 @@ class StacktraceTest(TestCase):
         })
         result = interface.get_hash()
         assert result == []
+
+    def test_get_hash_uses_symbol_instead_of_function(self):
+        interface = Frame.to_python({
+            'module': 'libfoo',
+            'function': 'int main()',
+            'symbol': '_main',
+        })
+        result = interface.get_hash()
+        self.assertEquals(result, [
+            'libfoo',
+            '_main',
+        ])
+
+    def test_get_hash_skips_symbol_if_unknown(self):
+        interface = Frame.to_python({
+            'module': 'libfoo',
+            'function': 'main',
+            'symbol': '?',
+        })
+        result = interface.get_hash()
+        self.assertEquals(result, [
+            'libfoo',
+            'main',
+        ])
 
     @mock.patch('sentry.interfaces.stacktrace.Stacktrace.get_stacktrace')
     def test_to_string_returns_stacktrace(self, get_stacktrace):
@@ -438,6 +542,11 @@ class StacktraceTest(TestCase):
         with self.assertRaises(InterfaceValidationError):
             Frame.to_python({
                 'module': 1,
+            })
+
+        with self.assertRaises(InterfaceValidationError):
+            Frame.to_python({
+                'function': '?',
             })
 
     def test_context_with_nan(self):

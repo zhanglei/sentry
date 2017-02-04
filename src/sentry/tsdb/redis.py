@@ -11,22 +11,21 @@ import itertools
 import logging
 import operator
 import random
-import six
 import uuid
-
 from binascii import crc32
 from collections import defaultdict, namedtuple
-from datetime import timedelta
-from django.utils import timezone
 from hashlib import md5
+
+import six
+from django.utils import timezone
 from pkg_resources import resource_string
 from redis.client import Script
-from six.moves import reduce
 
 from sentry.tsdb.base import BaseTSDB
-from sentry.utils.dates import to_timestamp
+from sentry.utils.dates import to_datetime, to_timestamp
 from sentry.utils.redis import check_cluster_versions, get_cluster_from_options
 from sentry.utils.versioning import Version
+from six.moves import reduce
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +131,8 @@ class RedisTSDB(BaseTSDB):
         if isinstance(model_key, six.integer_types):
             vnode = model_key % self.vnodes
         else:
+            if isinstance(model_key, six.text_type):
+                model_key = model_key.encode('utf-8')
             vnode = crc32(model_key) % self.vnodes
 
         return '{0}{1}:{2}:{3}'.format(self.prefix, model.value, epoch, vnode)
@@ -162,7 +163,7 @@ class RedisTSDB(BaseTSDB):
             timestamp = timezone.now()
 
         with self.cluster.map() as client:
-            for rollup, max_values in self.rollups:
+            for rollup, max_values in six.iteritems(self.rollups):
                 norm_rollup = normalize_to_rollup(timestamp, rollup)
                 for model, key in items:
                     model_key = self.get_model_key(key)
@@ -177,34 +178,32 @@ class RedisTSDB(BaseTSDB):
         """
         To get a range of data for group ID=[1, 2, 3]:
 
-        Start and end are both inclusive.
-
         >>> now = timezone.now()
         >>> get_keys(TimeSeriesModel.group, [1, 2, 3],
         >>>          start=now - timedelta(days=1),
         >>>          end=now)
         """
-        normalize_to_epoch = self.normalize_to_epoch
-        normalize_to_rollup = self.normalize_to_rollup
-        make_key = self.make_counter_key
-
-        if rollup is None:
-            rollup = self.get_optimal_rollup(start, end)
+        rollup, series = self.get_optimal_rollup_series(start, end, rollup)
+        series = map(to_datetime, series)
 
         results = []
-        timestamp = end
         with self.cluster.map() as client:
-            while timestamp >= start:
-                real_epoch = normalize_to_epoch(timestamp, rollup)
-                norm_epoch = normalize_to_rollup(timestamp, rollup)
-
-                for key in keys:
-                    model_key = self.get_model_key(key)
-                    hash_key = make_key(model, norm_epoch, model_key)
-                    results.append((real_epoch, key,
-                                    client.hget(hash_key, model_key)))
-
-                timestamp = timestamp - timedelta(seconds=rollup)
+            for key in keys:
+                model_key = self.get_model_key(key)
+                for timestamp in series:
+                    hash_key = self.make_counter_key(
+                        model,
+                        self.normalize_to_rollup(
+                            timestamp,
+                            rollup
+                        ),
+                        model_key,
+                    )
+                    results.append((
+                        to_timestamp(timestamp),
+                        key,
+                        client.hget(hash_key, model_key)
+                    ))
 
         results_by_key = defaultdict(dict)
         for epoch, key, count in results:
@@ -229,7 +228,7 @@ class RedisTSDB(BaseTSDB):
         with self.cluster.fanout() as client:
             for model, key, values in items:
                 c = client.target_key(key)
-                for rollup, max_values in self.rollups:
+                for rollup, max_values in six.iteritems(self.rollups):
                     k = self.make_key(
                         model,
                         rollup,
@@ -310,7 +309,9 @@ class RedisTSDB(BaseTSDB):
             """
             Return a list containing all keys for each interval in the series for a key.
             """
-            return [self.make_key(model, rollup, timestamp, key) for timestamp in series]
+            return [
+                self.make_key(model, rollup, timestamp, key)
+                for timestamp in series]
 
         router = self.cluster.get_router()
 
@@ -346,7 +347,10 @@ class RedisTSDB(BaseTSDB):
             Calculate the cardinality of the provided HyperLogLog values.
             """
             destination = make_temporary_key('a')  # all values will be merged into this key
-            aggregates = {make_temporary_key('a:{}'.format(host)): value for host, value in values}
+            aggregates = {
+                make_temporary_key('a:{}'.format(host)): value
+                for host, value in values
+            }
 
             # Choose a random host to execute the reduction on. (We use a host
             # here that we've already accessed as part of this process -- this
@@ -367,14 +371,14 @@ class RedisTSDB(BaseTSDB):
         # MSET and PFMERGE operations entirely.
 
         return merge_aggregates(
-            map(
-                get_partition_aggregate,
-                reduce(
+            [
+                get_partition_aggregate(x)
+                for x in reduce(
                     map_key_to_host,
                     keys,
                     defaultdict(set),
-                ).items(),
-            )
+                ).items()
+            ]
         )
 
     def make_frequency_table_keys(self, model, rollup, timestamp, key):
@@ -402,7 +406,7 @@ class RedisTSDB(BaseTSDB):
 
                 # Figure out all of the keys we need to be incrementing, as
                 # well as their expiration policies.
-                for rollup, max_values in self.rollups:
+                for rollup, max_values in six.iteritems(self.rollups):
                     chunk = self.make_frequency_table_keys(model, rollup, ts, key)
                     keys.extend(chunk)
 

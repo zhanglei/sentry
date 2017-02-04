@@ -7,14 +7,17 @@ import time
 import logging
 import posixpath
 
+from symsynd.demangle import demangle_symbol
+
 from sentry.models import Project, EventError
 from sentry.plugins import Plugin2
-from sentry.lang.native.symbolizer import Symbolizer, have_symsynd
-from sentry.lang.native.utils import find_all_stacktraces, \
+from sentry.lang.native.symbolizer import Symbolizer, SymbolicationFailed
+from sentry.lang.native.utils import \
     find_apple_crash_report_referenced_images, get_sdk_from_event, \
     find_stacktrace_referenced_images, get_sdk_from_apple_system_info, \
     APPLE_SDK_MAPPING
 from sentry.utils.native import parse_addr
+from sentry.stacktraces import StacktraceProcessor
 
 
 logger = logging.getLogger(__name__)
@@ -70,6 +73,7 @@ def append_error(data, err):
 
 
 def process_posix_signal(data):
+    # XXX: kill me
     signal = data.get('signal', -1)
     signal_name = data.get('name')
     if signal_name is None:
@@ -83,6 +87,7 @@ def process_posix_signal(data):
 
 
 def exception_from_apple_error_or_diagnosis(error, diagnosis=None):
+    # XXX: kill me
     rv = {}
     error = error or {}
 
@@ -133,6 +138,7 @@ def exception_from_apple_error_or_diagnosis(error, diagnosis=None):
 
 
 def is_in_app(frame, app_uuid=None):
+    # XXX: kill me
     if app_uuid is not None:
         frame_uuid = frame.get('uuid')
         if frame_uuid == app_uuid:
@@ -147,6 +153,7 @@ def is_in_app(frame, app_uuid=None):
 
 
 def convert_stacktrace(frames, system=None, notable_addresses=None):
+    # XXX: kill me
     app_uuid = None
     if system:
         app_uuid = system.get('app_uuid')
@@ -154,7 +161,6 @@ def convert_stacktrace(frames, system=None, notable_addresses=None):
             app_uuid = app_uuid.lower()
 
     converted_frames = []
-    longest_addr = 0
     for frame in reversed(frames):
         fn = frame.get('filename')
 
@@ -176,20 +182,13 @@ def convert_stacktrace(frames, system=None, notable_addresses=None):
             # function needs to be provided.
             'function': function,
             'package': frame.get('object_name'),
-            'symbol_addr': '%x' % frame['symbol_addr'],
-            'instruction_addr': '%x' % frame['instruction_addr'],
+            'symbol_addr': '0x%x' % frame['symbol_addr'],
+            'instruction_addr': '0x%x' % frame['instruction_addr'],
             'instruction_offset': offset,
             'lineno': lineno,
         }
         cframe['in_app'] = is_in_app(cframe, app_uuid)
         converted_frames.append(cframe)
-        longest_addr = max(longest_addr, len(cframe['symbol_addr']),
-                           len(cframe['instruction_addr']))
-
-    # Pad out addresses to be of the same length and add prefix
-    for frame in converted_frames:
-        for key in 'symbol_addr', 'instruction_addr':
-            frame[key] = '0x' + frame[key][2:].rjust(longest_addr, '0')
 
     if converted_frames and notable_addresses:
         converted_frames[-1]['vars'] = notable_addresses
@@ -251,14 +250,6 @@ def inject_apple_device_data(data, system):
             device['family'] = match.group(1)
 
 
-def record_no_symsynd(data):
-    if data.get('sentry.interfaces.AppleCrashReport'):
-        append_error(data, {
-            'type': EventError.NATIVE_NO_SYMSYND,
-        })
-        return data
-
-
 def dump_crash_report(report):
     import json
     with open('/tmp/sentry-apple-crash-report-%s.json' % time.time(), 'w') as f:
@@ -267,9 +258,7 @@ def dump_crash_report(report):
 
 def preprocess_apple_crash_event(data):
     """This processes the "legacy" AppleCrashReport."""
-    crash_report = data.get('sentry.interfaces.AppleCrashReport')
-    if crash_report is None:
-        return
+    crash_report = data['sentry.interfaces.AppleCrashReport']
 
     if os.environ.get('SENTRY_DUMP_APPLE_CRASH_REPORT') == '1':
         dump_crash_report(crash_report)
@@ -303,7 +292,7 @@ def preprocess_apple_crash_event(data):
     sym = Symbolizer(project, crash_report['binary_images'],
                      referenced_images=referenced_images)
 
-    with sym:
+    try:
         if crashed_thread is None:
             append_error(data, {
                 'type': EventError.NATIVE_NO_CRASHED_THREAD,
@@ -342,6 +331,8 @@ def preprocess_apple_crash_event(data):
                 append_error(data, error)
             thread['stacktrace'] = convert_stacktrace(
                 bt, system, raw_thread.get('notable_addresses'))
+    finally:
+        sym.close()
 
     if threads:
         data['threads'] = {
@@ -354,108 +345,128 @@ def preprocess_apple_crash_event(data):
     return data
 
 
-def resolve_frame_symbols(data):
-    debug_meta = data.get('debug_meta')
-    if not debug_meta:
-        return
+class NativeStacktraceProcessor(StacktraceProcessor):
 
-    debug_images = debug_meta['images']
-    sdk_info = get_sdk_from_event(data)
-    if not sdk_info:
-        return
+    def __init__(self, *args, **kwargs):
+        StacktraceProcessor.__init__(self, *args, **kwargs)
+        debug_meta = self.data.get('debug_meta')
+        self.sym = None
+        if debug_meta:
+            self.available = True
+            self.debug_meta = debug_meta
+            self.sdk_info = get_sdk_from_event(self.data)
+        else:
+            self.available = False
 
-    stacktraces = find_all_stacktraces(data)
-    if not stacktraces:
-        return
+    def close(self):
+        StacktraceProcessor.close(self)
+        if self.sym is not None:
+            self.sym.close()
+            self.sym = None
 
-    project = Project.objects.get_from_cache(
-        id=data['project'],
-    )
+    def preprocess_related_data(self):
+        if not self.available:
+            return False
 
-    errors = []
-    referenced_images = find_stacktrace_referenced_images(
-        debug_images, stacktraces)
-    sym = Symbolizer(project, debug_images,
-                     referenced_images=referenced_images)
+        is_debug_build = self.debug_meta.get('is_debug_build')
+        referenced_images = find_stacktrace_referenced_images(
+            self.debug_meta['images'], [
+                x.stacktrace for x in self.stacktrace_infos])
+        self.sym = Symbolizer(self.project, self.debug_meta['images'],
+                              referenced_images=referenced_images,
+                              is_debug_build=is_debug_build)
 
-    frame = None
-    idx = -1
+        # The symbolizer gets a reference to the debug meta's images so
+        # when it resolves the missing vmaddrs it changes them in the data
+        # dict.
+        return self.sym.resolve_missing_vmaddrs()
 
-    def report_error(e):
-        errors.append({
-            'type': EventError.NATIVE_INTERNAL_FAILURE,
-            'frame': frame,
-            'error': 'frame #%d: %s: %s' % (
-                idx,
-                e.__class__.__name__,
-                six.text_type(e),
-            )
-        })
+    def process_frame(self, frame):
+        # XXX: warn on missing availability?
 
-    longest_addr = 0
-    processed_frames = []
-    with sym:
-        for stacktrace in stacktraces:
-            for idx, frame in enumerate(stacktrace['frames']):
-                if 'image_addr' not in frame or \
-                   'instruction_addr' not in frame or \
-                   'symbol_addr' not in frame:
-                    continue
-                try:
-                    sfrm = sym.symbolize_frame({
-                        'object_name': frame.get('package'),
-                        'object_addr': frame['image_addr'],
-                        'instruction_addr': frame['instruction_addr'],
-                        'symbol_addr': frame['symbol_addr'],
-                    }, sdk_info, report_error=report_error)
-                    if not sfrm:
-                        logger.warning('Frame did not symbolize (%s)',
-                                       frame)
-                        continue
-                    # XXX: log here if symbol could not be found?
-                    frame['function'] = sfrm.get('symbol_name') or \
-                        frame.get('function') or '<unknown>'
-                    frame['abs_path'] = sfrm.get('filename') or None
-                    if frame['abs_path']:
-                        frame['filename'] = posixpath.basename(frame['abs_path'])
-                    if sfrm.get('line') is not None:
-                        frame['lineno'] = sfrm['line']
-                    else:
-                        frame['instruction_offset'] = \
-                            parse_addr(sfrm['instruction_addr']) - \
-                            parse_addr(sfrm['symbol_addr'])
-                    if sfrm.get('column') is not None:
-                        frame['colno'] = sfrm['column']
-                    frame['package'] = sfrm['object_name'] or frame.get('package')
-                    frame['symbol_addr'] = '0x%x' % parse_addr(sfrm['symbol_addr'])
-                    frame['instruction_addr'] = '0x%x' % parse_addr(
-                        sfrm['instruction_addr'])
-                    frame['in_app'] = is_in_app(frame)
-                    longest_addr = max(longest_addr, len(frame['symbol_addr']),
-                                       len(frame['instruction_addr']))
-                    processed_frames.append(frame)
-                except Exception:
-                    logger.exception('Failed to symbolicate')
-                    errors.append({
-                        'type': EventError.NATIVE_INTERNAL_FAILURE,
-                        'error': 'The symbolicator encountered an internal failure',
-                    })
+        # Only process frames here that are of supported platforms and
+        # have the mandatory requirements for
+        if not self.available or \
+           self.get_effective_platform(frame) != 'cocoa' or \
+           'image_addr' not in frame or \
+           'instruction_addr' not in frame or \
+           'symbol_addr' not in frame:
+            return None
 
-    # Pad out addresses to be of the same length
-    for frame in processed_frames:
-        for key in 'symbol_addr', 'instruction_addr':
-            frame[key] = frame[key].rjust(longest_addr, '0')
+        errors = []
 
-    if errors:
-        data.setdefault('errors', []).extend(errors)
+        # Construct a raw frame that is used by the symbolizer
+        # backend.
+        sym_frame = {
+            'object_name': frame.get('package'),
+            'object_addr': frame['image_addr'],
+            'instruction_addr': frame['instruction_addr'],
+            'symbol_name': frame.get('function'),
+            'symbol_addr': frame['symbol_addr'],
+        }
+        new_frame = dict(frame)
+        raw_frame = dict(frame)
 
-    return data
+        try:
+            sfrm = self.sym.symbolize_frame(sym_frame, self.sdk_info)
+        except SymbolicationFailed as e:
+            if e.is_user_fixable or e.is_sdk_failure:
+                errors.append({
+                    'type': EventError.NATIVE_INTERNAL_FAILURE,
+                    'image_uuid': e.image_uuid,
+                    'image_path': e.image_path,
+                    'image_arch': e.image_arch,
+                    'message': e.message,
+                })
+            else:
+                logger.debug('Failed to symbolicate with native backend',
+                             exc_info=True)
+        else:
+            symbol = sfrm.get('symbol_name') or \
+                new_frame.get('function') or '<unknown>'
+            function = demangle_symbol(symbol, simplified=True)
+
+            new_frame['function'] = function
+
+            # If we demangled something, store the original in the
+            # symbol portion of the frame
+            if function != symbol:
+                new_frame['symbol'] = symbol
+
+            new_frame['abs_path'] = sfrm.get('filename') or None
+            if new_frame['abs_path']:
+                new_frame['filename'] = posixpath.basename(
+                    new_frame['abs_path'])
+            if sfrm.get('line') is not None:
+                new_frame['lineno'] = sfrm['line']
+            else:
+                new_frame['instruction_offset'] = \
+                    parse_addr(sfrm['instruction_addr']) - \
+                    parse_addr(sfrm['symbol_addr'])
+            if sfrm.get('column') is not None:
+                new_frame['colno'] = sfrm['column']
+            new_frame['package'] = sfrm['object_name'] \
+                or new_frame.get('package')
+            new_frame['symbol_addr'] = '0x%x' % \
+                parse_addr(sfrm['symbol_addr'])
+            new_frame['instruction_addr'] = '0x%x' % parse_addr(
+                sfrm['instruction_addr'])
+
+        in_app = self.sym.is_in_app(sym_frame)
+        new_frame['in_app'] = raw_frame['in_app'] = in_app
+        return [new_frame], [raw_frame], errors
 
 
 class NativePlugin(Plugin2):
     can_disable = False
 
-    def get_event_preprocessors(self, **kwargs):
-        if not have_symsynd:
-            return [record_no_symsynd]
-        return [preprocess_apple_crash_event, resolve_frame_symbols]
+    def get_event_preprocessors(self, data, **kwargs):
+        rv = []
+        if data.get('sentry.interfaces.AppleCrashReport'):
+            rv.append(preprocess_apple_crash_event)
+        return rv
+
+    def get_stacktrace_processors(self, data, stacktrace_infos,
+                                  platforms, **kwargs):
+        if 'cocoa' in platforms:
+            return [NativeStacktraceProcessor]

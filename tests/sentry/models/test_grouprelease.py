@@ -11,7 +11,9 @@ class GetOrCreateTest(TestCase):
     def test_simple(self):
         project = self.create_project()
         group = self.create_group(project=project)
-        release = Release.objects.create(version='abc', project=project)
+        release = Release.objects.create(version='abc',
+                                         organization_id=project.organization_id)
+        release.add_project(project)
         env = Environment.objects.create(project_id=project.id, name='prod')
         datetime = timezone.now()
 
@@ -36,6 +38,19 @@ class GetOrCreateTest(TestCase):
             release=release,
             environment=env,
             datetime=datetime_new,
+        )
+
+        assert grouprelease.first_seen == datetime
+        assert grouprelease.last_seen == datetime_new
+
+        datetime_new2 = datetime_new + timedelta(seconds=1)
+
+        # this should not update immediately as the window is too close
+        grouprelease = GroupRelease.get_or_create(
+            group=group,
+            release=release,
+            environment=env,
+            datetime=datetime_new2,
         )
 
         assert grouprelease.first_seen == datetime

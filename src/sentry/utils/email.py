@@ -19,6 +19,8 @@ from functools import partial
 from operator import attrgetter
 from random import randrange
 
+import lxml
+import toronado
 from django.conf import settings
 from django.core.mail import get_connection as _get_connection
 from django.core.mail import send_mail as _send_mail
@@ -27,7 +29,6 @@ from django.core.mail.backends.base import BaseEmailBackend
 from django.core.signing import BadSignature, Signer
 from django.utils.crypto import constant_time_compare
 from django.utils.encoding import force_bytes, force_str, force_text
-from toronado import from_string as inline_css
 
 from sentry import options
 from sentry.logging import LoggingFormat
@@ -43,6 +44,14 @@ from sentry.web.helpers import render_to_string
 MAX_RECIPIENTS = 5
 
 logger = logging.getLogger('sentry.mail')
+
+
+def inline_css(value):
+    tree = lxml.html.document_fromstring(value)
+    toronado.inline(tree)
+    # CSS media query support is inconistent when the DOCTYPE declaration is
+    # missing, so we force it to HTML5 here.
+    return lxml.html.tostring(tree, doctype="<!DOCTYPE html>")
 
 
 class _CaseInsensitiveSigner(Signer):
@@ -213,7 +222,7 @@ class ListResolver(object):
                 'Cannot generate mailing list identifier for {!r}'.format(instance)
             )
 
-        label = '.'.join(map(str, handler(instance)))
+        label = '.'.join(map(six.binary_type, handler(instance)))
         assert is_valid_dot_atom(label)
 
         return '{}.{}'.format(label, self.__namespace)
@@ -327,7 +336,7 @@ class MessageBuilder(object):
                 headers.setdefault('References', thread.msgid)
 
         msg = EmailMultiAlternatives(
-            subject=subject,
+            subject=subject.splitlines()[0],
             body=self.__render_text_body(),
             from_email=self.from_email,
             to=(to,),
@@ -338,7 +347,7 @@ class MessageBuilder(object):
 
         html_body = self.__render_html_body()
         if html_body:
-            msg.attach_alternative(html_body, 'text/html')
+            msg.attach_alternative(html_body.decode('utf-8'), 'text/html')
 
         return msg
 
@@ -370,6 +379,10 @@ class MessageBuilder(object):
         extra = {
             'message_type': self.type
         }
+        loggable = [v for k, v in six.iteritems(self.context) if hasattr(v, 'id')]
+        for context in loggable:
+            extra['%s_id' % type(context).__name__.lower()] = context.id
+
         log_mail_queued = partial(logger.info, 'mail.queued', extra=extra)
         for message in messages:
             safe_execute(
@@ -392,7 +405,10 @@ def send_messages(messages, fail_silently=False):
     sent = connection.send_messages(messages)
     metrics.incr('email.sent', len(messages))
     for message in messages:
-        extra = {'message_id': message.extra_headers['Message-Id']}
+        extra = {
+            'message_id': message.extra_headers['Message-Id'],
+            'size': len(message.message().as_bytes()),
+        }
         logger.info('mail.sent', extra=extra)
     return sent
 
@@ -448,7 +464,7 @@ class PreviewBackend(BaseEmailBackend):
     """
     def send_messages(self, email_messages):
         for message in email_messages:
-            content = six.text_type(message.message())
+            content = six.binary_type(message.message())
             preview = tempfile.NamedTemporaryFile(
                 delete=False,
                 prefix='sentry-email-preview-',

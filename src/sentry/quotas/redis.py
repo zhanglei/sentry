@@ -38,8 +38,8 @@ class RedisQuota(Quota):
 
     def get_quotas(self, project):
         return (
-            ('p:{}'.format(project.id), self.get_project_quota(project), 60),
-            ('o:{}'.format(project.organization.id), self.get_organization_quota(project.organization), 60),
+            ('p:{}'.format(project.id),) + self.get_project_quota(project),
+            ('o:{}'.format(project.organization.id),) + self.get_organization_quota(project.organization),
         )
 
     def get_redis_key(self, key, timestamp, interval):
@@ -48,11 +48,12 @@ class RedisQuota(Quota):
     def is_rate_limited(self, project):
         timestamp = time()
 
-        quotas = filter(
+        quotas = [
+            (key, limit, interval)
+            for key, limit, interval in self.get_quotas(project)
             # x = (key, limit, interval)
-            lambda x: x[1] and x[1] > 0,  # a zero limit means "no limit", not "reject all"
-            self.get_quotas(project),
-        )
+            if limit and limit > 0  # a zero limit means "no limit", not "reject all"
+        ]
 
         # If there are no quotas to actually check, skip the trip to the database.
         if not quotas:

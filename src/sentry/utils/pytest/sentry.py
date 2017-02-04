@@ -10,7 +10,6 @@ def pytest_configure(config):
     # HACK: Only needed for testing!
     os.environ.setdefault('_SENTRY_SKIP_CONFIGURATION', '1')
 
-    os.environ.setdefault('RECAPTCHA_TESTING', 'True')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sentry.conf.server')
 
     if not settings.configured:
@@ -65,6 +64,8 @@ def pytest_configure(config):
         'django.contrib.auth.hashers.MD5PasswordHasher',
     ]
 
+    settings.AUTH_PASSWORD_VALIDATORS = []
+
     # Replace real sudo middleware with our mock sudo middleware
     # to assert that the user is always in sudo mode
     middleware = list(settings.MIDDLEWARE_CLASSES)
@@ -79,9 +80,6 @@ def pytest_configure(config):
 
     settings.SENTRY_TSDB = 'sentry.tsdb.inmemory.InMemoryTSDB'
     settings.SENTRY_TSDB_OPTIONS = {}
-
-    settings.RECAPTCHA_PUBLIC_KEY = 'a' * 40
-    settings.RECAPTCHA_PRIVATE_KEY = 'b' * 40
 
     settings.BROKER_BACKEND = 'memory'
     settings.BROKER_URL = None
@@ -131,6 +129,16 @@ def pytest_configure(config):
     bind_cache_to_option_store()
 
     initialize_receivers()
+
+    from sentry.plugins import plugins
+    from sentry.plugins.utils import TestIssuePlugin2
+
+    plugins.register(TestIssuePlugin2)
+
+    from sentry.plugins import bindings
+    from sentry.plugins.providers.dummy import DummyRepositoryProvider
+
+    bindings.add('repository.provider', DummyRepositoryProvider, id='dummy')
 
     from sentry.utils.redis import clusters
 

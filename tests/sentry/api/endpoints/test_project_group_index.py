@@ -1,15 +1,21 @@
 from __future__ import absolute_import
 
-import six
+import json
 
 from datetime import timedelta
+from uuid import uuid4
+
+import six
+from six.moves.urllib.parse import quote
+
 from django.utils import timezone
 from exam import fixture
 from mock import patch
 
 from sentry.models import (
-    Activity, EventMapping, Group, GroupBookmark, GroupResolution, GroupSeen,
-    GroupSnooze, GroupSubscription, GroupStatus, Release
+    Activity, EventMapping, Group, GroupBookmark, GroupHash, GroupTagValue,
+    GroupResolution, GroupSeen, GroupSnooze, GroupStatus, GroupSubscription,
+    Release
 )
 from sentry.testutils import APITestCase
 from sentry.testutils.helpers import parse_link_header
@@ -219,6 +225,62 @@ class GroupListTest(APITestCase):
         assert response.status_code == 200
         assert len(response.data) == 0
 
+    def test_lookup_by_first_release(self):
+        self.login_as(self.user)
+        project = self.project
+        project2 = self.create_project(name='baz',
+                                       organization=project.organization)
+        release = Release.objects.create(organization=project.organization,
+                                         version='12345')
+        release.add_project(project)
+        release.add_project(project2)
+        group = self.create_group(checksum='a' * 32,
+                                  project=project,
+                                  first_release=release)
+        self.create_group(checksum='b' * 32,
+                          project=project2,
+                          first_release=release)
+        url = '%s?query=%s' % (self.path, quote('first-release:"%s"' % release.version))
+        response = self.client.get(url, format='json')
+        issues = json.loads(response.content)
+        assert response.status_code == 200
+        assert len(issues) == 1
+        assert int(issues[0]['id']) == group.id
+
+    def test_lookup_by_release(self):
+        self.login_as(self.user)
+        project = self.project
+        project2 = self.create_project(name='baz',
+                                       organization=project.organization)
+        release = Release.objects.create(organization=project.organization,
+                                         version='12345')
+        release.add_project(project)
+        release.add_project(project2)
+        group = self.create_group(checksum='a' * 32,
+                                  project=project)
+        group2 = self.create_group(checksum='b' * 32,
+                                   project=project2)
+        GroupTagValue.objects.create(
+            project=project,
+            group=group,
+            key='sentry:release',
+            value=release.version
+        )
+
+        GroupTagValue.objects.create(
+            project=project2,
+            group=group2,
+            key='sentry:release',
+            value=release.version
+        )
+
+        url = '%s?query=%s' % (self.path, quote('release:"%s"' % release.version))
+        response = self.client.get(url, format='json')
+        issues = json.loads(response.content)
+        assert response.status_code == 200
+        assert len(issues) == 1
+        assert int(issues[0]['id']) == group.id
+
 
 class GroupUpdateTest(APITestCase):
     @fixture
@@ -231,7 +293,7 @@ class GroupUpdateTest(APITestCase):
     def test_global_resolve(self):
         group1 = self.create_group(checksum='a' * 32, status=GroupStatus.RESOLVED)
         group2 = self.create_group(checksum='b' * 32, status=GroupStatus.UNRESOLVED)
-        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.MUTED)
+        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.IGNORED)
         group4 = self.create_group(
             project=self.create_project(slug='foo'),
             checksum='b' * 32, status=GroupStatus.UNRESOLVED)
@@ -271,9 +333,9 @@ class GroupUpdateTest(APITestCase):
             is_active=True,
         ).exists()
 
-        # the muted entry should not be included
+        # the ignored entry should not be included
         new_group3 = Group.objects.get(id=group3.id)
-        assert new_group3.status == GroupStatus.MUTED
+        assert new_group3.status == GroupStatus.IGNORED
         assert new_group3.resolved_at is None
 
         assert not GroupSubscription.objects.filter(
@@ -293,7 +355,7 @@ class GroupUpdateTest(APITestCase):
     def test_selective_status_update(self):
         group1 = self.create_group(checksum='a' * 32, status=GroupStatus.RESOLVED)
         group2 = self.create_group(checksum='b' * 32, status=GroupStatus.UNRESOLVED)
-        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.MUTED)
+        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.IGNORED)
         group4 = self.create_group(
             project=self.create_project(slug='foo'),
             checksum='b' * 32, status=GroupStatus.UNRESOLVED)
@@ -329,14 +391,16 @@ class GroupUpdateTest(APITestCase):
 
         new_group3 = Group.objects.get(id=group3.id)
         assert new_group3.resolved_at is None
-        assert new_group3.status == GroupStatus.MUTED
+        assert new_group3.status == GroupStatus.IGNORED
 
         new_group4 = Group.objects.get(id=group4.id)
         assert new_group4.resolved_at is None
         assert new_group4.status == GroupStatus.UNRESOLVED
 
     def test_set_resolved_in_next_release(self):
-        release = Release.objects.create(project=self.project, version='a')
+        release = Release.objects.create(organization_id=self.project.organization_id,
+                                         version='a')
+        release.add_project(self.project)
 
         group = self.create_group(
             checksum='a' * 32,
@@ -408,7 +472,7 @@ class GroupUpdateTest(APITestCase):
         ).exists()
 
     def test_set_unresolved_on_snooze(self):
-        group = self.create_group(checksum='a' * 32, status=GroupStatus.MUTED)
+        group = self.create_group(checksum='a' * 32, status=GroupStatus.IGNORED)
 
         GroupSnooze.objects.create(
             group=group,
@@ -443,8 +507,8 @@ class GroupUpdateTest(APITestCase):
             group=group,
         )
         response = self.client.put(url, data={
-            'status': 'muted',
-            'snoozeDuration': 30,
+            'status': 'ignored',
+            'ignoreDuration': 30,
         }, format='json')
 
         assert response.status_code == 200
@@ -459,22 +523,22 @@ class GroupUpdateTest(APITestCase):
         assert snooze.until < now + timedelta(minutes=31)
 
         # Drop microsecond value for MySQL
-        response.data['statusDetails']['snoozeUntil'] = response.data['statusDetails']['snoozeUntil'].replace(microsecond=0)
+        response.data['statusDetails']['ignoreUntil'] = response.data['statusDetails']['ignoreUntil'].replace(microsecond=0)
 
         assert response.data == {
-            'status': 'muted',
+            'status': 'ignored',
             'statusDetails': {
-                'snoozeUntil': snooze.until,
+                'ignoreUntil': snooze.until,
             },
         }
 
         group = Group.objects.get(id=group.id)
-        assert group.get_status() == GroupStatus.MUTED
+        assert group.get_status() == GroupStatus.IGNORED
 
     def test_set_bookmarked(self):
         group1 = self.create_group(checksum='a' * 32, status=GroupStatus.RESOLVED)
         group2 = self.create_group(checksum='b' * 32, status=GroupStatus.UNRESOLVED)
-        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.MUTED)
+        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.IGNORED)
         group4 = self.create_group(
             project=self.create_project(slug='foo'),
             checksum='b' * 32, status=GroupStatus.UNRESOLVED)
@@ -539,6 +603,9 @@ class GroupUpdateTest(APITestCase):
         assert response.status_code == 200
         assert response.data == {
             'isSubscribed': True,
+            'subscriptionDetails': {
+                'reason': 'unknown',
+            },
         }
 
         assert GroupSubscription.objects.filter(
@@ -608,7 +675,7 @@ class GroupUpdateTest(APITestCase):
     def test_set_has_seen(self):
         group1 = self.create_group(checksum='a' * 32, status=GroupStatus.RESOLVED)
         group2 = self.create_group(checksum='b' * 32, status=GroupStatus.UNRESOLVED)
-        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.MUTED)
+        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.IGNORED)
         group4 = self.create_group(
             project=self.create_project(slug='foo'),
             checksum='b' * 32, status=GroupStatus.UNRESOLVED)
@@ -640,8 +707,13 @@ class GroupUpdateTest(APITestCase):
         r4 = GroupSeen.objects.filter(group=group4, user=self.user)
         assert not r4.exists()
 
+    @patch('sentry.api.endpoints.project_group_index.uuid4')
     @patch('sentry.api.endpoints.project_group_index.merge_group')
-    def test_merge(self, merge_group):
+    def test_merge(self, merge_group, mock_uuid4):
+        class uuid(object):
+            hex = 'abc123'
+
+        mock_uuid4.return_value = uuid
         group1 = self.create_group(checksum='a' * 32, times_seen=1)
         group2 = self.create_group(checksum='b' * 32, times_seen=50)
         group3 = self.create_group(checksum='c' * 32, times_seen=2)
@@ -665,8 +737,16 @@ class GroupUpdateTest(APITestCase):
         ])
 
         assert len(merge_group.mock_calls) == 2
-        merge_group.delay.assert_any_call(from_object_id=group1.id, to_object_id=group2.id)
-        merge_group.delay.assert_any_call(from_object_id=group3.id, to_object_id=group2.id)
+        merge_group.delay.assert_any_call(
+            from_object_id=group1.id,
+            to_object_id=group2.id,
+            transaction_id='abc123',
+        )
+        merge_group.delay.assert_any_call(
+            from_object_id=group3.id,
+            to_object_id=group2.id,
+            transaction_id='abc123',
+        )
 
 
 class GroupDeleteTest(APITestCase):
@@ -687,10 +767,17 @@ class GroupDeleteTest(APITestCase):
     def test_delete_by_id(self):
         group1 = self.create_group(checksum='a' * 32, status=GroupStatus.RESOLVED)
         group2 = self.create_group(checksum='b' * 32, status=GroupStatus.UNRESOLVED)
-        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.MUTED)
+        group3 = self.create_group(checksum='c' * 32, status=GroupStatus.IGNORED)
         group4 = self.create_group(
             project=self.create_project(slug='foo'),
             checksum='b' * 32, status=GroupStatus.UNRESOLVED)
+
+        for g in group1, group2, group3, group4:
+            GroupHash.objects.create(
+                project=g.project,
+                hash=uuid4().hex,
+                group=g,
+            )
 
         self.login_as(user=self.user)
         url = '{url}?id={group1.id}&id={group2.id}&group4={group4.id}'.format(
@@ -700,19 +787,37 @@ class GroupDeleteTest(APITestCase):
             group4=group4,
         )
 
+        response = self.client.delete(url, format='json')
+
+        assert response.status_code == 204
+
+        assert Group.objects.get(id=group1.id).status == GroupStatus.PENDING_DELETION
+        assert not GroupHash.objects.filter(group_id=group1.id).exists()
+
+        assert Group.objects.get(id=group2.id).status == GroupStatus.PENDING_DELETION
+        assert not GroupHash.objects.filter(group_id=group2.id).exists()
+
+        assert Group.objects.get(id=group3.id).status != GroupStatus.PENDING_DELETION
+        assert GroupHash.objects.filter(group_id=group3.id).exists()
+
+        assert Group.objects.get(id=group4.id).status != GroupStatus.PENDING_DELETION
+        assert GroupHash.objects.filter(group_id=group4.id).exists()
+
+        Group.objects.filter(id__in=(group1.id, group2.id)).update(status=GroupStatus.UNRESOLVED)
+
         with self.tasks():
             response = self.client.delete(url, format='json')
 
         assert response.status_code == 204
 
-        new_group1 = Group.objects.filter(id=group1.id)
-        assert not new_group1.exists()
+        assert not Group.objects.filter(id=group1.id).exists()
+        assert not GroupHash.objects.filter(group_id=group1.id).exists()
 
-        new_group2 = Group.objects.filter(id=group2.id)
-        assert not new_group2.exists()
+        assert not Group.objects.filter(id=group2.id).exists()
+        assert not GroupHash.objects.filter(group_id=group2.id).exists()
 
-        new_group3 = Group.objects.filter(id=group3.id)
-        assert new_group3.exists()
+        assert Group.objects.filter(id=group3.id).exists()
+        assert GroupHash.objects.filter(group_id=group3.id).exists()
 
-        new_group4 = Group.objects.filter(id=group4.id)
-        assert new_group4.exists()
+        assert Group.objects.filter(id=group4.id).exists()
+        assert GroupHash.objects.filter(group_id=group4.id).exists()

@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function
 import logging
 
 from django.conf import settings
-from django.db import connections
+from django.db import connections, transaction
 from django.db.utils import OperationalError, ProgrammingError
 from django.db.models.signals import post_syncdb, post_save
 from functools import wraps
@@ -28,7 +28,8 @@ def handle_db_failure(func):
     @wraps(func)
     def wrapped(*args, **kwargs):
         try:
-            return func(*args, **kwargs)
+            with transaction.atomic():
+                return func(*args, **kwargs)
         except (ProgrammingError, OperationalError):
             logging.exception('Failed processing signal %s', func.__name__)
             return
@@ -159,7 +160,7 @@ def record_project_tag_count(filters, created, **kwargs):
 
 
 @buffer_incr_complete.connect(sender=GroupTagValue, weak=False)
-def record_group_tag_count(filters, created, **kwargs):
+def record_group_tag_count(filters, created, extra, **kwargs):
     from sentry import app
 
     if not created:
@@ -168,7 +169,7 @@ def record_group_tag_count(filters, created, **kwargs):
     # TODO(dcramer): remove in 7.6.x
     project_id = filters.get('project_id')
     if not project_id:
-        project_id = filters['project'].id
+        project_id = extra['project']
 
     group_id = filters.get('group_id')
     if not group_id:

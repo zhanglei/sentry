@@ -10,6 +10,7 @@ import signal
 from datetime import datetime
 from django.conf import settings
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from six.moves.urllib.parse import quote, urlparse
@@ -49,6 +50,19 @@ class Browser(object):
     def delete(self, path, *args, **kwargs):
         self.driver.delete(self.route(path), *args, **kwargs)
         return self
+
+    def element(self, selector):
+        return self.driver.find_element_by_css_selector(selector)
+
+    def element_exists(self, selector):
+        try:
+            self.element(selector)
+        except NoSuchElementException:
+            return False
+        return True
+
+    def click(self, selector):
+        self.element(selector).click()
 
     def wait_until(self, selector, timeout=3):
         """
@@ -119,6 +133,9 @@ def pytest_addoption(parser):
     group._addoption('--selenium-driver',
                      dest='selenium_driver',
                      help='selenium driver (phantomjs or firefox)')
+    group._addoption('--phantomjs-path',
+                     dest='phantomjs_path',
+                     help='path to phantomjs driver')
 
 
 def pytest_configure(config):
@@ -153,13 +170,16 @@ def browser(request, percy, live_server):
     if driver_type == 'firefox':
         driver = webdriver.Firefox()
     elif driver_type == 'phantomjs':
-        phantomjs_path = os.path.join(
-            settings.NODE_MODULES_ROOT,
-            'phantomjs-prebuilt',
-            'bin',
-            'phantomjs',
-        )
+        phantomjs_path = request.config.getoption('phantomjs_path')
+        if not phantomjs_path:
+            phantomjs_path = os.path.join(
+                'node_modules',
+                'phantomjs-prebuilt',
+                'bin',
+                'phantomjs',
+            )
         driver = webdriver.PhantomJS(executable_path=phantomjs_path)
+        driver.set_window_size(1280, 800)
     else:
         raise pytest.UsageError('--driver must be specified')
 

@@ -22,6 +22,7 @@ from sentry.digests.notifications import (
     unsplit_key,
 )
 from sentry.plugins import Notification, Plugin
+from sentry.plugins.base.configuration import react_plugin_config
 from sentry.models import (
     ProjectOption,
     UserOption,
@@ -55,29 +56,40 @@ class NotificationPlugin(Plugin):
     # site_conf_form = NotificationConfigurationForm
     project_conf_form = NotificationConfigurationForm
 
+    def configure(self, project, request):
+        return react_plugin_config(self, project, request)
+
+    def get_plugin_type(self):
+        return 'notification'
+
     def notify(self, notification):
-        self.logger.info('notification.dispatched', extra={
-            'event_id': notification.event.id,
-            'plugin': self.slug
-        })
         event = notification.event
         return self.notify_users(event.group, event)
 
     def rule_notify(self, event, futures):
         rules = []
+        extra = {
+            'event_id': event.id,
+            'group_id': event.group_id,
+            'plugin': self.slug,
+        }
+        log_event = 'dispatched'
         for future in futures:
             rules.append(future.rule)
+            extra['rule_id'] = future.rule.id
             if not future.kwargs:
                 continue
             raise NotImplementedError('The default behavior for notification de-duplication does not support args')
 
         project = event.group.project
+        extra['project_id'] = project.id
         if hasattr(self, 'notify_digest') and digests.enabled(project):
             get_digest_option = lambda key: ProjectOption.objects.get_value(
                 project,
                 get_digest_option_key(self.get_conf_key(), key),
             )
             digest_key = unsplit_key(self, event.group.project)
+            extra['digest_key'] = digest_key
             immediate_delivery = digests.add(
                 digest_key,
                 event_to_record(event, rules),
@@ -86,6 +98,8 @@ class NotificationPlugin(Plugin):
             )
             if immediate_delivery:
                 deliver_digest.delay(digest_key)
+            else:
+                log_event = 'digested'
 
         else:
             notification = Notification(
@@ -93,6 +107,8 @@ class NotificationPlugin(Plugin):
                 rules=rules,
             )
             self.notify(notification)
+
+        self.logger.info('notification.%s' % log_event, extra=extra)
 
     def notify_users(self, group, event, fail_silently=False):
         raise NotImplementedError
@@ -129,7 +145,7 @@ class NotificationPlugin(Plugin):
                 value='0',
                 user__in=members_to_check,
             ).values_list('user', flat=True))
-            member_set = filter(lambda x: x not in disabled, member_set)
+            member_set = [x for x in member_set if x not in disabled]
 
         return member_set
 
@@ -148,7 +164,7 @@ class NotificationPlugin(Plugin):
         if not self.is_configured(project=project):
             return False
 
-        if group.is_muted():
+        if group.is_ignored():
             return False
 
         # If the plugin doesn't support digests or they are not enabled,

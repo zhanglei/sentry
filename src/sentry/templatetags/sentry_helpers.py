@@ -9,42 +9,31 @@ from __future__ import absolute_import
 
 import functools
 import os.path
-import pytz
-import six
-
 from collections import namedtuple
 from datetime import timedelta
-from pkg_resources import parse_version as Version
-from six.moves import range
-from six.moves.urllib.parse import quote, urlencode
 
+import pytz
+import six
 from django import template
 from django.conf import settings
-from django.core.urlresolvers import reverse
 from django.template.defaultfilters import stringfilter
 from django.utils import timezone
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
+from pkg_resources import parse_version as Version
+from templatetag_sugar.parser import Constant, Name, Variable
+from templatetag_sugar.register import tag
 
 from sentry import options
 from sentry.api.serializers import serialize as serialize_func
-from sentry.models import UserAvatar, Organization
+from sentry.models import Organization
 from sentry.utils import json
-from sentry.utils.strings import to_unicode
-from sentry.utils.avatar import (
-    get_gravatar_url,
-    get_email_avatar,
-    get_letter_avatar
-)
 from sentry.utils.javascript import to_json
-from sentry.utils.strings import (
-    soft_break as _soft_break,
-    soft_hyphenate,
-    truncatechars,
-)
-from templatetag_sugar.register import tag
-from templatetag_sugar.parser import Name, Variable, Constant, Optional
+from sentry.utils.strings import soft_break as _soft_break
+from sentry.utils.strings import soft_hyphenate, to_unicode, truncatechars
+from six.moves import range
+from six.moves.urllib.parse import quote
 
 SentryVersion = namedtuple('SentryVersion', [
     'current', 'latest', 'update_available', 'build',
@@ -59,10 +48,33 @@ truncatechars.is_safe = True
 register.filter(to_json)
 
 
+@register.filter
+def multiply(x, y):
+    def coerce(value):
+        if isinstance(value, (six.integer_types, float)):
+            return value
+        try:
+            return int(value)
+        except ValueError:
+            return float(value)
+    return coerce(x) * coerce(y)
+
+
 @register.simple_tag
 def absolute_uri(path='', *args):
     from sentry.utils.http import absolute_uri
     return absolute_uri(path.format(*args))
+
+
+@register.simple_tag
+def system_origin():
+    from sentry.utils.http import absolute_uri, origin_from_url
+    return origin_from_url(absolute_uri())
+
+
+@register.simple_tag
+def security_contact():
+    return options.get('system.security-email') or options.get('system.admin-email')
 
 
 @register.filter
@@ -96,6 +108,11 @@ def subtract(value, amount):
 
 
 @register.filter
+def absolute_value(value):
+    return abs(int(value) if isinstance(value, six.integer_types) else float(value))
+
+
+@register.filter
 def has_charts(group):
     from sentry.utils.db import has_charts
     if hasattr(group, '_state'):
@@ -111,7 +128,7 @@ def as_sorted(value):
 
 
 @register.filter
-def small_count(v):
+def small_count(v, precision=1):
     if not v:
         return 0
     z = [
@@ -125,7 +142,7 @@ def small_count(v):
         if o:
             if len(six.text_type(o)) > 2 or not p:
                 return '%d%s' % (o, y)
-            return '%.1f%s' % (v / float(x), y)
+            return ('%.{}f%s'.format(precision)) % (v / float(x), y)
     return v
 
 
@@ -236,46 +253,6 @@ def get_project_dsn(context, user, project, asvar):
     return ''
 
 
-# Adapted from http://en.gravatar.com/site/implement/images/django/
-# The "mm" default is for the grey, "mystery man" icon. See:
-#   http://en.gravatar.com/site/implement/images/
-@tag(register, [Variable('email'),
-                Optional([Constant('size'), Variable('size')]),
-                Optional([Constant('default'), Variable('default')])])
-def gravatar_url(context, email, size=None, default='mm'):
-    return get_gravatar_url(email, size, default)
-
-
-@tag(register, [Variable('display_name'),
-                Variable('identifier'),
-                Optional([Constant('size'), Variable('size')])])
-def letter_avatar_svg(context, display_name, identifier, size=None):
-    return get_letter_avatar(display_name, identifier, size=size)
-
-
-@tag(register, [Variable('user_id'),
-                Optional([Constant('size'), Variable('size')])])
-def profile_photo_url(context, user_id, size=None):
-    try:
-        avatar = UserAvatar.objects.get(user__id=user_id)
-    except UserAvatar.DoesNotExist:
-        return
-    url = reverse('sentry-user-avatar-url', args=[avatar.ident])
-    if size:
-        url += '?' + urlencode({'s': size})
-    return settings.SENTRY_URL_PREFIX + url
-
-
-# Don't use this in any situations where you're rendering more
-# than 1-2 avatars. It will make a request for every user!
-@tag(register, [Variable('display_name'),
-                Variable('identifier'),
-                Optional([Constant('size'), Variable('size')]),
-                Optional([Constant('try_gravatar'), Variable('try_gravatar')])])
-def email_avatar(context, display_name, identifier, size=None, try_gravatar=True):
-    return get_email_avatar(display_name, identifier, size, try_gravatar)
-
-
 @register.filter
 def trim_schema(value):
     return value.split('//', 1)[-1]
@@ -304,10 +281,16 @@ def with_metadata(group_list, request):
 
 
 @register.simple_tag
-def percent(value, total):
+def percent(value, total, format=None):
     if not (value and total):
-        return 0
-    return int(int(value) / float(total) * 100)
+        result = 0
+    else:
+        result = int(value) / float(total) * 100
+
+    if format is None:
+        return int(result)
+    else:
+        return ('%%%s' % format) % result
 
 
 @register.filter
@@ -380,13 +363,6 @@ def format_userinfo(user):
         escape(user.username),
         escape(username),
     ))
-
-
-@register.inclusion_tag('sentry/includes/captcha.html')
-def load_captcha():
-    return {
-        'api_key': settings.RECAPTCHA_PUBLIC_KEY,
-    }
 
 
 @register.filter

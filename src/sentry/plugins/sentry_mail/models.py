@@ -14,7 +14,7 @@ import six
 import sentry
 
 from django.core.urlresolvers import reverse
-from django.template.loader import render_to_string
+from django.utils import dateformat
 from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
@@ -87,10 +87,7 @@ class MailPlugin(NotificationPlugin):
         return absolute_uri(reverse('sentry-account-settings-notifications'))
 
     def get_project_url(self, project):
-        return absolute_uri(reverse('sentry-stream', args=[
-            project.organization.slug,
-            project.slug,
-        ]))
+        return absolute_uri('/{}/{}/'.format(project.organization.slug, project.slug))
 
     def is_configured(self, project, **kwargs):
         # Nothing to configure here
@@ -117,7 +114,7 @@ class MailPlugin(NotificationPlugin):
         cache_key = '%s:send_to:%s' % (self.get_conf_key(), project.pk)
         send_to_list = cache.get(cache_key)
         if send_to_list is None:
-            send_to_list = filter(bool, self.get_sendable_users(project))
+            send_to_list = [s for s in self.get_sendable_users(project) if s]
             cache.set(cache_key, send_to_list, 60)  # 1 minute cache
 
         return send_to_list
@@ -199,6 +196,14 @@ class MailPlugin(NotificationPlugin):
                 send_to=[user_id],
             )
 
+    def get_digest_subject(self, project, counts, date):
+        return u'[{project}] {count} new {noun} since {date}'.format(
+            project=project.get_full_name(),
+            count=len(counts),
+            noun='alert' if len(counts) == 1 else 'alerts',
+            date=dateformat.format(date, 'N j, Y, P e'),
+        )
+
     def notify_digest(self, project, digest):
         start, end, counts = get_digest_metadata(digest)
 
@@ -225,10 +230,12 @@ class MailPlugin(NotificationPlugin):
             'counts': counts,
         }
 
+        subject = self.get_digest_subject(project, counts, start)
+
         for user_id in self.get_send_to(project):
             self.add_unsubscribe_link(context, user_id, project)
             self._send_mail(
-                subject=render_to_string('sentry/emails/digests/subject.txt', context).rstrip(),
+                subject=subject,
                 template='sentry/emails/digests/body.txt',
                 html_template='sentry/emails/digests/body.html',
                 project=project,
