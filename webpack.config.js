@@ -15,7 +15,12 @@ if (process.env.SENTRY_STATIC_DIST_PATH) {
 var IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 var babelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '.babelrc')));
-babelConfig.cacheDirectory = true;
+
+// No benefit in using `cacheDirectory` in production; may also have
+// file permission issues w/ sentry.io deploy
+if (!IS_PRODUCTION) {
+  babelConfig.cacheDirectory = true;
+}
 
 // only extract po files if we need to
 if (process.env.SENTRY_EXTRACT_TRANSLATIONS === '1') {
