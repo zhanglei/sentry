@@ -92,6 +92,8 @@ def cleanup(days, project, concurrency, silent, model, router, timed):
         (models.Group, 'last_seen'),
     )
 
+    skip_nodestore = False
+
     if not silent:
         click.echo('Removing expired values for LostPasswordHash')
 
@@ -129,6 +131,7 @@ def cleanup(days, project, concurrency, silent, model, router, timed):
             cutoff = timezone.now() - timedelta(days=days)
             try:
                 nodestore.cleanup(cutoff)
+                skip_nodestore = True
             except NotImplementedError:
                 click.echo("NodeStore backend does not support cleanup operation", err=True)
 
@@ -192,6 +195,7 @@ def cleanup(days, project, concurrency, silent, model, router, timed):
                 dtfield=dtfield,
                 days=days,
                 project_id=project_id,
+                skip_nodestore=skip_nodestore,
             )
             if concurrency > 1:
                 threads = []
