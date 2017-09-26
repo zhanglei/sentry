@@ -106,7 +106,8 @@ const HomeSidebar = React.createClass({
                 <ListLink to={`/organizations/${orgId}/integrations/`}>
                   {t('Integrations')}
                 </ListLink>}
-              {access.has('org:write') &&
+              {features.has('repos') &&
+                access.has('org:write') &&
                 <ListLink to={`/organizations/${orgId}/repos/`}>
                   {t('Repositories')}
                 </ListLink>}

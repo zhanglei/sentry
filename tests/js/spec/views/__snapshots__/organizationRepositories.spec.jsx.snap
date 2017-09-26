@@ -447,28 +447,6 @@ exports[`OrganizationRepositories render() with a provider renders 1`] = `
                       <ListLink
                         activeClassName="active"
                         index={false}
-                        to="/organizations/org-slug/repos/"
-                      >
-                        <li
-                          className=""
-                        >
-                          <Link
-                            onlyActiveOnIndex={false}
-                            style={Object {}}
-                            to="/organizations/org-slug/repos/"
-                          >
-                            <a
-                              onClick={[Function]}
-                              style={Object {}}
-                            >
-                              Repositories
-                            </a>
-                          </Link>
-                        </li>
-                      </ListLink>
-                      <ListLink
-                        activeClassName="active"
-                        index={false}
                         to="/organizations/org-slug/settings/"
                       >
                         <li
@@ -1089,28 +1067,6 @@ exports[`OrganizationRepositories render() with a provider renders with a reposi
                               style={Object {}}
                             >
                               Rate Limits
-                            </a>
-                          </Link>
-                        </li>
-                      </ListLink>
-                      <ListLink
-                        activeClassName="active"
-                        index={false}
-                        to="/organizations/org-slug/repos/"
-                      >
-                        <li
-                          className=""
-                        >
-                          <Link
-                            onlyActiveOnIndex={false}
-                            style={Object {}}
-                            to="/organizations/org-slug/repos/"
-                          >
-                            <a
-                              onClick={[Function]}
-                              style={Object {}}
-                            >
-                              Repositories
                             </a>
                           </Link>
                         </li>
@@ -1838,28 +1794,6 @@ exports[`OrganizationRepositories render() without any providers renders 1`] = `
                               style={Object {}}
                             >
                               Rate Limits
-                            </a>
-                          </Link>
-                        </li>
-                      </ListLink>
-                      <ListLink
-                        activeClassName="active"
-                        index={false}
-                        to="/organizations/org-slug/repos/"
-                      >
-                        <li
-                          className=""
-                        >
-                          <Link
-                            onlyActiveOnIndex={false}
-                            style={Object {}}
-                            to="/organizations/org-slug/repos/"
-                          >
-                            <a
-                              onClick={[Function]}
-                              style={Object {}}
-                            >
-                              Repositories
                             </a>
                           </Link>
                         </li>
