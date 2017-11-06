@@ -20,7 +20,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from sentry import tagstore
 from sentry.app import locks
-from sentry.constants import ObjectStatus
+from sentry.constants import INTEGRATION_ID_TO_PLATFORM_DATA, ObjectStatus
 from sentry.db.models import (
     BaseManager, BoundedPositiveIntegerField, FlexibleForeignKey, Model, sane_repr
 )
@@ -127,6 +127,10 @@ class Project(Model):
 
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.slug)
+
+    @property
+    def platform_name(self):
+        return INTEGRATION_ID_TO_PLATFORM_DATA.get(self.platform, {}).get('name', '')
 
     def next_short_id(self):
         from sentry.models import Counter
