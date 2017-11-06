@@ -9,6 +9,7 @@ from .endpoints.api_tokens import ApiTokensEndpoint
 from .endpoints.auth_index import AuthIndexEndpoint
 from .endpoints.broadcast_index import BroadcastIndexEndpoint
 from .endpoints.catchall import CatchallEndpoint
+from .endpoints.dugout import DugoutEndpoint
 from .endpoints.event_details import EventDetailsEndpoint
 from .endpoints.event_apple_crash_report import EventAppleCrashReportEndpoint
 from .endpoints.group_details import GroupDetailsEndpoint
@@ -132,6 +133,11 @@ urlpatterns = patterns(
     '',
 
     # Api Data
+    url(
+        r'^dugout/$',
+        DugoutEndpoint.as_view(),
+        name='dugout'
+    ),
     url(
         r'^api-applications/$',
         ApiApplicationsEndpoint.as_view(),
