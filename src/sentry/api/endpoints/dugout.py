@@ -17,8 +17,8 @@ class DugoutEndpoint(Endpoint):
         project_slug = 'sentry'
 
         result = {
-            'id': 'setup-release-tracking',
-            'starting_url': 'https://sentry.io/sentry/sentry/',
+            'slug': 'setup-release-tracking',
+            'starting_url': ['https://sentry.io/%s/%s/' % (org_slug, project_slug)],
             'steps': [
                 {
                     'title': 'You sent your %s first event!' % platform,
