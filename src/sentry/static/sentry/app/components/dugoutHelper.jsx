@@ -34,7 +34,7 @@ const DugoutHelper = React.createClass({
     const top = element.offsetTop;
 
     return (
-      <div className="dugout-blinker" style={{top: top, left: left}}>
+      <div className="dugout-blinker" style={{top, left}}>
         <div className="dugout-blink-inner-1" />
         <div className="dugout-blink-inner-2" />
       </div>
