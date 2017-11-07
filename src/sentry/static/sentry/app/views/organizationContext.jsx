@@ -192,7 +192,7 @@ const OrganizationContext = React.createClass({
             <BroadcastModal closeBroadcast={this.closeBroadcast} />
           )}
           {this.props.children}
-          <DugoutHelper/>
+          <DugoutHelper organizationId={this.props.params.orgId}/>
         </div>
       </DocumentTitle>
     );
