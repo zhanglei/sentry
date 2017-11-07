@@ -30,8 +30,9 @@ const DugoutHelper = React.createClass({
     const {target} = this.state.guides[0].steps[0];
     const element = document.querySelectorAll(target)[0];
     if (!element) return null;
-    const left = element.offsetLeft - (element.clientWidth / 2) + parseInt(window.getComputedStyle(element, null).marginLeft, 10);
-    const top = element.offsetTop;
+    const boundingClientRect = element.getBoundingClientRect();
+    const left = boundingClientRect.left;
+    const top = boundingClientRect.top;
 
     return (
       <div className="dugout-blinker" style={{top, left}}>
