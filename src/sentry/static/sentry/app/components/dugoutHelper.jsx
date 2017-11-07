@@ -7,7 +7,9 @@ const DugoutHelper = React.createClass({
 
   getInitialState(props) {
    return {
-     guides: []
+     guides: [],
+     guide: 0,
+     step: 0
    };
   },
 
@@ -30,9 +32,7 @@ const DugoutHelper = React.createClass({
     const {target} = this.state.guides[0].steps[0];
     const element = document.querySelectorAll(target)[0];
     if (!element) return null;
-    const boundingClientRect = element.getBoundingClientRect();
-    const left = boundingClientRect.left;
-    const top = boundingClientRect.top;
+    const {left, top} = element.getBoundingClientRect();
 
     return (
       <div className="dugout-blinker" style={{top, left}}>
