@@ -1,6 +1,6 @@
 .dugout-blinker {
-  width: .8em;
-  height: .8em;
+  width: 60px;
+  height: 60px;
 
   &, &:before, &:after {
     position: absolute;
@@ -8,24 +8,23 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background-color: @blue;
+    background-color: fade(@blue, 25%);
     border-radius: 50%;
   }
 
   &:before, &:after {
     content: "";
-    box-shadow: 0 0 1px @blue;
   }
 
   &:before {
-    width: 200%;
-    height: 200%;
-    opacity: 0.5;
+    width: 75%;
+    height: 75%;
+    background-color: fade(@blue, 50%);
   }
 
   &:after {
-    width: 300%;
-    height: 300%;
-    opacity: 0.25;
+    width: 50%;
+    height: 50%;
+    background-color: @blue;
   }
 }
