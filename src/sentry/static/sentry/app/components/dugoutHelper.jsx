@@ -17,13 +17,26 @@ const DugoutHelper = React.createClass({
     this.api.request(`/dugout/${this.props.organizationId}/`, {
       method: 'GET',
       success: (response) => {
-        if (response) this.setState({guides: response});
+        if (response) this.setupGuides(response);
         window.setTimeout(this.requestGuides, 3000);
       }
     });
   },
 
-  beginGuide({steps, slug, complete, firstStepElement}) {
+  setupGuides(json) {
+    if (!json.length) return;
+
+    const guides = json.map(g => Object.assign({}, g, {
+      firstStepElement: document.querySelectorAll(g.steps[0].target)[0]
+    })).filter(g => g.firstStepElement);
+
+    if (!guides.length) return;
+
+    this.setState({guides});
+  },
+
+  currentGuide() {
+    return this.state.guides[this.state.guide];
   },
 
   componentDidMount() {
@@ -31,13 +44,8 @@ const DugoutHelper = React.createClass({
   },
 
   render() {
-    if (!this.state.guides.length) return null;
-    const activeGuides = this.state.guides.map(g => Object.assign({}, g, {
-      firstStepElement: document.querySelectorAll(g.steps[0].target)[0]
-    })).filter(g => g.firstStepElement);
-    if (!activeGuides.length) return null;
-    this.beginGuide(activeGuides[this.state.guide]);
-    const {left, top} = activeGuides[this.state.guide].firstStepElement.getBoundingClientRect();
+    if (!this.currentGuide()) return null;
+    const {left, top} = this.currentGuide().firstStepElement.getBoundingClientRect();
 
     return (
       <div className="dugout-blinker" style={{top, left}}>
