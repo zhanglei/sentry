@@ -27,16 +27,22 @@ const DugoutHelper = React.createClass({
     if (!json.length) return;
 
     const guides = json.map(g => Object.assign({}, g, {
-      firstStepElement: document.querySelectorAll(g.steps[0].target)[0]
-    })).filter(g => g.firstStepElement);
+      steps: g.steps.map(s => Object.assign({}, s, {element: document.querySelectorAll(s.target)[0]}))
+    })).filter(g => g.steps[0].element);
+
+    console.log(guides)
 
     if (!guides.length) return;
 
-    this.setState({guides});
+    this.setState({guides: guides});
   },
 
   currentGuide() {
     return this.state.guides[this.state.guide];
+  },
+
+  currentStep() {
+    return this.currentGuide().steps[this.state.step];
   },
 
   componentDidMount() {
@@ -45,12 +51,17 @@ const DugoutHelper = React.createClass({
 
   render() {
     if (!this.currentGuide()) return null;
-    const {left, top} = this.currentGuide().firstStepElement.getBoundingClientRect();
+    const {left, top} = this.currentStep().element.getBoundingClientRect();
 
     return (
-      <div className="dugout-blinker" style={{top, left}}>
-        <div className="dugout-blink-inner-1" />
-        <div className="dugout-blink-inner-2" />
+      <div>
+        <div className="dugout-blinker" style={{top, left}}>
+          <div className="dugout-blink-inner-1" />
+          <div className="dugout-blink-inner-2" />
+        </div>
+        <div className="dugout-message">
+          {this.currentStep().title}
+        </div>
       </div>
     );
   }

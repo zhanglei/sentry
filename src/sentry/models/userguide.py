@@ -37,7 +37,7 @@ manager.add(slug='setup-release-tracking',
                 GuideStep('Click on Release Tracking',
                           'Project Settings is where you configure your \
                           {project.platform_name} project.',
-                          '[href={organization.slug}/{project.slug}/settings/release-tracking/]',
+                          'a[href=\'{organization.slug}/{project.slug}/settings/release-tracking/\']',
                           'click'),
             ],
             complete='Done',

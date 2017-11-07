@@ -8,7 +8,7 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background-color: fade(@blue, 25%);
+    background-color: fade(@green, 25%);
     border-radius: 50%;
   }
 
@@ -19,12 +19,24 @@
   &:before {
     width: 75%;
     height: 75%;
-    background-color: fade(@blue, 50%);
+    background-color: fade(@green, 50%);
   }
 
   &:after {
     width: 50%;
     height: 50%;
-    background-color: @blue;
+    color: @green;
   }
+}
+
+.dugout-message {
+  position: fixed;
+  bottom: 1em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: @green;
+  padding: .1em 1em;
+  font-size: .9em;
+  border-radius: 5em;
+  color: #fff;
 }
