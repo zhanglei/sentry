@@ -11,18 +11,18 @@ const DugoutHelper = React.createClass({
    };
   },
 
-  beginPolling() {
+  requestGuides() {
     this.api.request(`/dugout/${this.props.organizationId}/`, {
       method: 'GET',
       success: (response) => {
         if (response) this.setState({guides: response});
-        window.setTimeout(this.beginPolling, 3000);
+        window.setTimeout(this.requestGuides, 3000);
       }
     });
   },
 
   componentDidMount() {
-    this.beginPolling();
+    this.requestGuides();
   },
 
   render() {
@@ -34,9 +34,9 @@ const DugoutHelper = React.createClass({
     const top = element.offsetTop;
 
     return (
-      <div className="dugout-blinker" style={{top, left}}>
-        <div className="dugout-blink-inner-1" />
-        <div className="dugout-blink-inner-2" />
+      <div className="dugout-blinker" style={{top: top, left: left}}>
+        <div className="dugout-blink-inner-1"></div>
+        <div className="dugout-blink-inner-2"></div>
       </div>
     );
   }
