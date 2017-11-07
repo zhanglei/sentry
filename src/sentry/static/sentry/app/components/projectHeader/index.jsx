@@ -70,8 +70,8 @@ const ProjectHeader = React.createClass({
             <a
               className={
                 navSection == 'settings'
-                  ? 'btn btn-sm btn-default active'
-                  : 'btn btn-sm btn-default'
+                  ? 'project-settings btn btn-sm btn-default active'
+                  : 'project-settings btn btn-sm btn-default'
               }
               href={`/${org.slug}/${project.slug}/settings/`}
             >
