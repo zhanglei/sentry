@@ -30,11 +30,9 @@ const DugoutHelper = React.createClass({
       steps: g.steps.map(s => Object.assign({}, s, {element: document.querySelectorAll(s.target)[0]}))
     })).filter(g => g.steps[0].element);
 
-    console.log(guides)
-
     if (!guides.length) return;
 
-    this.setState({guides: guides});
+    this.setState({guides});
   },
 
   currentGuide() {
