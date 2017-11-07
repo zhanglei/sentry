@@ -23,16 +23,21 @@ const DugoutHelper = React.createClass({
     });
   },
 
+  beginGuide({steps, slug, complete, firstStepElement}) {
+  },
+
   componentDidMount() {
     this.requestGuides();
   },
 
   render() {
     if (!this.state.guides.length) return null;
-    const {target} = this.state.guides[0].steps[0];
-    const element = document.querySelectorAll(target)[0];
-    if (!element) return null;
-    const {left, top} = element.getBoundingClientRect();
+    const activeGuides = this.state.guides.map(g => Object.assign({}, g, {
+      firstStepElement: document.querySelectorAll(g.steps[0].target)[0]
+    })).filter(g => g.firstStepElement);
+    if (!activeGuides.length) return null;
+    this.beginGuide(activeGuides[this.state.guide]);
+    const {left, top} = activeGuides[this.state.guide].firstStepElement.getBoundingClientRect();
 
     return (
       <div className="dugout-blinker" style={{top, left}}>
