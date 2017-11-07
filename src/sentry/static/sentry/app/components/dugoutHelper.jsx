@@ -6,11 +6,11 @@ const DugoutHelper = React.createClass({
   mixins: [ApiMixin],
 
   getInitialState(props) {
-    this.state = {}
+    this.state = {};
   },
 
   beginPolling() {
-    this.api.request("/dugout/", {
+    this.api.request('/dugout/', {
       method: 'GET',
       success: (response) => {
         if (response) this.setState(Object.assign({}, this.state, response));
