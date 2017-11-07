@@ -1,18 +1,61 @@
 from __future__ import absolute_import
 
+from datetime import timedelta
+import json
+
+from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from sentry.api.base import Endpoint
+from sentry.api.bases.organization import OrganizationEndpoint
 from sentry.guide import manager
-from sentry.models import Organization, Project
+from sentry.models import Project, UserGuide, UserGuideStatus
 
 
-class DugoutEndpoint(Endpoint):
+class DugoutEndpoint(OrganizationEndpoint):
     permission_classes = (IsAuthenticated, )
 
-    def get(self, request):
+    def get(self, request, organization):
+        # if user has started, completed, or skipped a guide in the last day, return nothing.
+        show_guide = True
+        try:
+            last_modified = UserGuide.objects.filter(
+                user=request.user, organization=organization
+            ).exclude(
+                status=UserGuideStatus.QUEUED
+            ).order_by('-last_modified')[0].last_modified
+            show_guide = last_modified <= (timezone.now() - timedelta(days=1))
+        except IndexError:
+            pass
+
+        extra_guides = []
+        if show_guide:
+            extra_guides = manager.exclude(
+                list(UserGuide.objects.filter(
+                    user=request.user, organization=organization, status=UserGuideStatus.SKIPPED
+                ).values_list('slug', flat=True))
+            )
+
+        # always include queued
+        queued_guides = list(UserGuide.objects.filter(
+            user=request.user, organization=organization, status=UserGuideStatus.QUEUED
+        ).all())
+
         project = Project.objects.first()
-        organization = Organization.objects.first()
-        guide = manager.all()[0]
-        return Response(guide.to_dict(project=project, organization=organization))
+        guides = queued_guides + extra_guides
+        return Response([guide.to_dict(project=project, organization=organization)
+                         for guide in guides])
+
+    def put(self, request, organization):
+        req = json.loads(request.body)
+
+        assert req['status'] != 'queued'
+
+        status = [c[0] for c in UserGuide.STATUS_CHOICES if c[1] == req['status']][0]
+
+        UserGuide.objects.filter(
+            user=request.user, organization=organization, slug=req['slug']
+        ).update(status=status)
+
+        return HttpResponse(201)

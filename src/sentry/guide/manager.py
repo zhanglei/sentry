@@ -19,10 +19,6 @@ class Guide(object):
         }
 
 
-class UnknownFeature(KeyError):
-    pass
-
-
 class GuideManager(object):
     def __init__(self):
         self._slugs = set()
@@ -38,3 +34,6 @@ class GuideManager(object):
 
     def get_by_slug(self, slug):
         return self._slug_registry[slug]
+
+    def exclude(self, slugs):
+        return [self._slug_registry[slug] for slug in self._slug_registry if slug not in slugs]

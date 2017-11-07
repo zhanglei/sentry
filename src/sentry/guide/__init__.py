@@ -7,3 +7,4 @@ manager = GuideManager()
 add = manager.add
 all = manager.all
 get_by_slug = manager.get_by_slug
+exclude = manager.exclude

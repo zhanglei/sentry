@@ -5,12 +5,12 @@ from django.db import models
 from django.utils import timezone
 
 from sentry.db.models import (
-    BoundedPositiveIntegerField, FlexibleForeignKey, Model,
+    BoundedPositiveIntegerField, FlexibleForeignKey, Model, sane_repr
 )
 from sentry.guide import manager
 
 
-class UserGuideStep(object):
+class GuideStep(object):
     def __init__(self, title, description, target, event, complete=None):
         self.title = title
         self.description = description
@@ -21,7 +21,7 @@ class UserGuideStep(object):
         return {
             'title': self.title.format(**kwargs),
             'description': self.description.format(**kwargs),
-            'target': self.target,
+            'target': self.target.format(**kwargs),
             'event': self.event,
         }
 
@@ -29,31 +29,35 @@ class UserGuideStep(object):
 manager.add(slug='setup-release-tracking',
             starting_url=r'(?P<organization_slug>[^\/]+)/(?P<project_slug>[^\/]+)/',
             steps=[
-                UserGuideStep('You sent your {project.platform_name} first event!',
-                              'Silence alerts for issues you\'ve fixed. Set up release tracking to mark issues as "resolved in next release."',
-                              '.btn.project-settings',
-                              'click'),
-                UserGuideStep('Click on Release Tracking',
-                              'Project Settings is where you configure your {project.platform_name} project.',
-                              '[href={organization.name}/{project.name}/settings/release-tracking/]',
-                              'click'),
+                GuideStep('You sent your {project.platform_name} first event!',
+                          'Silence alerts for issues you\'ve fixed. Set up release tracking \
+                          to mark issues as "resolved in next release."',
+                          '.btn.project-settings',
+                          'click'),
+                GuideStep('Click on Release Tracking',
+                          'Project Settings is where you configure your \
+                          {project.platform_name} project.',
+                          '[href={organization.slug}/{project.slug}/settings/release-tracking/]',
+                          'click'),
             ],
             complete='Done',
             required_context=['organization', 'project'])
 
 
 class UserGuideStatus(object):
-    STARTED = 0
-    COMPLETED = 1
-    SKIPPED = 2
+    QUEUED = 0
+    STARTED = 1
+    COMPLETED = 2
+    SKIPPED = 3
 
 
 class UserGuide(Model):
     __core__ = False
 
-    STATUS_CHOICES = ((UserGuideStatus.STARTED, 'Started'),
-                      (UserGuideStatus.COMPLETED, 'Completed'),
-                      (UserGuideStatus.SKIPPED, 'Skipped'))
+    STATUS_CHOICES = ((UserGuideStatus.QUEUED, 'queued'),
+                      (UserGuideStatus.STARTED, 'started'),
+                      (UserGuideStatus.COMPLETED, 'completed'),
+                      (UserGuideStatus.SKIPPED, 'skipped'))
 
     slug = models.SlugField(unique=True)
     organization = FlexibleForeignKey('sentry.Organization')
@@ -62,3 +66,10 @@ class UserGuide(Model):
 
     started = models.DateTimeField(default=timezone.now)
     last_modified = models.DateTimeField(auto_now=True)
+
+    __repr__ = sane_repr('organization', 'user', 'slug', 'status')
+
+    class Meta:
+        app_label = 'sentry'
+        db_table = 'sentry_userguide'
+        unique_together = (('organization', 'user', 'slug'), )

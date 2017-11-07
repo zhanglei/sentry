@@ -134,9 +134,9 @@ urlpatterns = patterns(
 
     # Api Data
     url(
-        r'^dugout/$',
+        r'^dugout/(?P<organization_slug>[^\/]+)/$',
         DugoutEndpoint.as_view(),
-        name='dugout'
+        name='dugout',
     ),
     url(
         r'^api-applications/$',
