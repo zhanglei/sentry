@@ -29,15 +29,20 @@ class GuideStep(object):
 manager.add(slug='setup-release-tracking',
             starting_url=r'(?P<organization_slug>[^\/]+)/(?P<project_slug>[^\/]+)/',
             steps=[
-                GuideStep('You sent your {project.platform_name} first event!',
+                GuideStep('You gotta click star project',
                           'Silence alerts for issues you\'ve fixed. Set up release tracking \
                           to mark issues as "resolved in next release."',
-                          '.btn.project-settings',
+                          '.star-project',
                           'click'),
-                GuideStep('Click on Release Tracking',
+                GuideStep('Great! Now navigate to the Overview section',
                           'Project Settings is where you configure your \
                           {project.platform_name} project.',
-                          'a[href=\'{organization.slug}/{project.slug}/settings/release-tracking/\']',
+                          'a[href="/sentry/earth/dashboard/"]',
+                          'click'),
+                GuideStep('Amazing! Now Click on the 1 hour filter',
+                          'Project Settings is where you configure your \
+                          {project.platform_name} project.',
+                          'a[href="/sentry/earth/dashboard/?statsPeriod=1h"]',
                           'click'),
             ],
             complete='Done',

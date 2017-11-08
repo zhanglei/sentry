@@ -44,7 +44,7 @@ const DugoutHelper = React.createClass({
   },
 
   onClick() {
-    if (this.currentStep().event !== "click") return;
+    if (this.currentStep().event !== 'click') return;
     if (this.step >= this.currentGuide().steps.length) {
       this.setState({
         guide: this.state.guide++,
