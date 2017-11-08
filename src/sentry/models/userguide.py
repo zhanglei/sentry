@@ -30,8 +30,7 @@ manager.add(slug='setup-release-tracking',
             starting_url=r'(?P<organization_slug>[^\/]+)/(?P<project_slug>[^\/]+)/',
             steps=[
                 GuideStep('You gotta click star project',
-                          'Silence alerts for issues you\'ve fixed. Set up release tracking \
-                          to mark issues as "resolved in next release."',
+                          'this is intentionally blank',
                           '.star-project',
                           'click'),
                 GuideStep('Great! Now navigate to the Overview section',
