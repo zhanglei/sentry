@@ -51,7 +51,7 @@ const ProjectHeader = React.createClass({
 
         <div className="align-right project-actions">
           <BookmarkToggle orgId={org.slug} project={project}>
-            <a className="btn btn-sm btn-default">
+            <a className="star-project btn btn-sm btn-default">
               <span
                 className={
                   project.isBookmarked

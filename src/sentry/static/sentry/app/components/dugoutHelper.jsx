@@ -13,6 +13,14 @@ const DugoutHelper = React.createClass({
    };
   },
 
+  currentGuide() {
+    return this.state.guides[this.state.guide];
+  },
+
+  currentStep() {
+    return this.currentGuide().steps[this.state.step];
+  },
+
   requestGuides() {
     this.api.request(`/dugout/${this.props.organizationId}/`, {
       method: 'GET',
@@ -35,12 +43,18 @@ const DugoutHelper = React.createClass({
     this.setState({guides});
   },
 
-  currentGuide() {
-    return this.state.guides[this.state.guide];
-  },
-
-  currentStep() {
-    return this.currentGuide().steps[this.state.step];
+  onClick() {
+    if (this.currentStep().event !== "click") return;
+    if (this.step >= this.currentGuide().steps.length) {
+      this.setState({
+        guide: this.state.guide++,
+        step: 0
+      });
+    } else {
+      this.setState({
+        step: this.state.step + 1
+      });
+    }
   },
 
   componentDidMount() {
@@ -49,15 +63,18 @@ const DugoutHelper = React.createClass({
 
   render() {
     if (!this.currentGuide()) return null;
-    const {left, top} = this.currentStep().element.getBoundingClientRect();
+    const element = this.currentStep().element;
+    let {left, top} = element.getBoundingClientRect();
+    left = left + element.clientWidth / 2;
+    top = top + element.clientHeight / 2;
 
     return (
       <div>
-        <div className="dugout-blinker" style={{top, left}}>
+        <div className="dugout-blinker" onClick={this.onClick} style={{top, left}}>
           <div className="dugout-blink-inner-1" />
           <div className="dugout-blink-inner-2" />
         </div>
-        <div className="dugout-message">
+        <div className="dugout-message" onClick={this.onClick}>
           {this.currentStep().title}
         </div>
       </div>
