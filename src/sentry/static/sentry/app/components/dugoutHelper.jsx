@@ -74,8 +74,10 @@ const DugoutHelper = React.createClass({
           <div className="dugout-blink-inner-1" />
           <div className="dugout-blink-inner-2" />
         </div>
-        <div className="dugout-message" onClick={this.onClick}>
-          {this.currentStep().title}
+        <div className="dugout-drawer">
+          <div className="dugout-message" onClick={this.onClick}>
+            {this.currentStep().title}
+          </div>
         </div>
       </div>
     );
