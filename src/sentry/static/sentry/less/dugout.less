@@ -1,13 +1,13 @@
 @keyframes expand {
   from {
-    width: 50px;
-    height: 50px;
+    width: 20px;
+    height: 20px;
     opacity: 1;
   }
 
   to {
-    width: 200px;
-    height: 200px;
+    width: 100px;
+    height: 100px;
     opacity: 0;
   }
 }
@@ -42,9 +42,9 @@
   }
 }
 
-.dugout-blinker {
-  width: 3em;
-  height: 3em;
+.guide-anchor-ping {
+  width: 20px;
+  height: 20px;
   cursor: pointer;
   z-index: 999;
   position: relative;
@@ -75,6 +75,10 @@
     height: 50%;
     color: @green;
   }
+}
+
+.guide-anchor.text {
+  display: inline-block;
 }
 
 .dugout-drawer {

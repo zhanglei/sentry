@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import classNames from 'classnames';
 import React from 'react';
 import Reflux from 'reflux';
 import GuideStore from '../stores/guideStore';
@@ -32,20 +33,10 @@ const GuideAnchor = React.createClass({
   },
 
   render() {
-    let target = this.props.target + ' dugout-ping';
-    if (this.state.active) {target = target + ' active';}
-    let style = {
-        position: 'absolute',
-        left: 0,
-        bottom: 0,
-        width: '2pt',
-        height: '2pt',
-        backgroundColor: 'red'
-    };
     return (
-      <div onClick={this.handleClick}>
+      <div className={classNames("guide-anchor", this.props.type)} onClick={this.handleClick}>
           {this.props.children}
-          <span className={target} onClick={this.handlePingClick} style={style} />
+          <span className={classNames(this.props.target, 'guide-anchor-ping', {'active': this.state.active})} onClick={this.handlePingClick} />
       </div>
     );
   },

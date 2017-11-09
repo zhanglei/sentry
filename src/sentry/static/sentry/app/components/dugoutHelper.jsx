@@ -29,7 +29,7 @@ const DugoutHelper = React.createClass({
   },
 
   onGuideChange(guideState) {
-
+    debugger
   },
 
   requestGuides() {

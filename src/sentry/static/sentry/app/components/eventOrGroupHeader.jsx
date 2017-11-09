@@ -77,7 +77,7 @@ class EventOrGroupHeader extends React.Component {
 
     return (
       <div className={cx}>
-        <GuideAnchor target="project-first-issue">
+        <GuideAnchor target="project-first-issue" type="text">
           <h3 className="truncate">{this.getTitle()}</h3>
         </GuideAnchor>
         {message && (
