@@ -6,7 +6,7 @@ const GuideStore = Reflux.createStore({
     this._internal = {
         step: -1,
         guide: {
-            starting_message: 'Dummy text.',
+            starting_message: 'Need help?',
             complete_message: 'Go to docs.sentry.io/learn/releases to learn more.',
             steps: [
                 {
@@ -37,6 +37,7 @@ const GuideStore = Reflux.createStore({
     if (guide && JSON.stringify(this._internal.guide) != JSON.stringify(guide)) {
       this._internal.guide = guide;
       this.trigger(this._internal);
+      console.log('loaded data')
     }
   },
 
