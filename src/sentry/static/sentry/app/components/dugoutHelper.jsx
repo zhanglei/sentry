@@ -81,6 +81,10 @@ const DugoutHelper = React.createClass({
     this.requestGuides();
   },
 
+  clickedHandle() {
+    GuideStore.completeStep();
+  },
+
   render() {
     if (!this.currentGuide()) return null;
     const element = this.currentStep().element;
@@ -95,7 +99,7 @@ const DugoutHelper = React.createClass({
           <div className="dugout-blink-inner-2" />
         </div>
         <div onClick={this.onClick} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !!this.state.step})}>
-          <div className="dugout-message">{this.currentStep().title}</div>
+          <div className="dugout-message" onClick={this.clickedHandle}>{this.currentStep().title}</div>
           {this.largeMessage()}
         </div>
       </div>

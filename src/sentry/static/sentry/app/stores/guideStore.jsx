@@ -11,7 +11,7 @@ const GuideStore = Reflux.createStore({
                 {
                     title: 'Don\'t get alerts for issues you\'ve fixed.',
                     description: 'Setting up release tracking lets you mark issues as "Resolved in next release". Open your first issue to learn.',
-                    target: 'project-first-issue'
+                    target: 'INTERNAL-4',
                 },
                 {
                     title: 'A better issue resolution flow',

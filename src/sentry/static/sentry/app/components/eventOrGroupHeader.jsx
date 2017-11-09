@@ -72,12 +72,16 @@ class EventOrGroupHeader extends React.Component {
 
   render() {
     let {className} = this.props;
-    let cx = classNames('event-issue-header', className);
+    let cx = classNames('event-issue-header', this.props.data.shortId, className);
     let message = this.getMessage();
 
     return (
       <div className={cx}>
+<<<<<<< HEAD
         <GuideAnchor target="project-first-issue" type="text">
+=======
+        <GuideAnchor target={this.props.data.shortId}>
+>>>>>>> getting it working with lists
           <h3 className="truncate">{this.getTitle()}</h3>
         </GuideAnchor>
         {message && (

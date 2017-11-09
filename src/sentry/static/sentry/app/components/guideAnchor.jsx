@@ -29,10 +29,22 @@ const GuideAnchor = React.createClass({
   },
 
   handleClick(e) {
-    GuideStore.completeStep();
+    if (this.state.active) {
+      GuideStore.completeStep();
+    }
   },
 
   render() {
+    let target = this.props.target + ' dugout-ping';
+    if (this.state.active) {target = target + ' active';}
+    let style = {
+        position: 'absolute',
+        left: 0,
+        bottom: 0,
+        width: '3pt',
+        height: '3pt',
+        backgroundColor: 'red'
+    };
     return (
       <div className={classNames('guide-anchor', this.props.type)} onClick={this.handleClick}>
           {this.props.children}
