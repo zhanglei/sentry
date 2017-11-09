@@ -49,6 +49,7 @@
   z-index: 999;
   position: relative;
   animation: 1.5s ease-out infinite expand;
+  visibility: hidden;
 
   &, &:before, &:after {
     position: absolute;
@@ -75,6 +76,10 @@
     height: 50%;
     color: @green;
   }
+}
+
+.guide-anchor-ping.active {
+  visibility: visible;
 }
 
 .guide-anchor.text {

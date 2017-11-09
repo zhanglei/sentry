@@ -13,93 +13,45 @@ const DugoutHelper = React.createClass({
 
   getInitialState(props) {
    return {
-     guides: [],
-     guide: 0,
-     step: 0
+     needsUpdate: false
    };
   },
 
-
-  currentGuide() {
-    return this.state.guides[this.state.guide];
+  isFirstStep() {
+    return GuideStore._internal.step == -1;
   },
 
   currentStep() {
-    return this.currentGuide().steps[this.state.step];
-  },
-
-  onGuideChange(guideState) {
-    
-  },
-
-  requestGuides() {
-    this.api.request(`/dugout/${this.props.organizationId}/`, {
-      method: 'GET',
-      success: (response) => {
-        if (response) this.setupGuides(response);
-        window.setTimeout(this.requestGuides, 5000);
-      }
-    });
-  },
-
-  setupGuides(json) {
-    if (!json.length) return;
-
-    const guides = json.map(g => Object.assign({}, g, {
-      steps: g.steps.map(s => Object.assign({}, s, {element: document.querySelectorAll(s.target)[0]}))
-    })).filter(g => g.steps[0].element);
-
-    if (!guides.length) return;
-
-    this.setState({guides});
-  },
-
-  onClick() {
-    if (this.currentStep().event !== 'click') return;
-    if (this.step >= this.currentGuide().steps.length) {
-      this.setState({
-        guide: this.state.guide++,
-        step: 0
-      });
+    const g = GuideStore;
+    if (!this.isFirstStep()) {
+      return GuideStore._internal.guide.steps[GuideStore._internal.step];
     } else {
-      this.setState({
-        step: this.state.step + 1
-      });
+      return GuideStore._internal.guide.steps[0];
     }
   },
 
+  onGuideChange(guideState) {
+    this.setState({needsUpdate: !!this.state.needsUpdate})
+  },
+
   largeMessage() {
-    if (this.state.step > 0) return (
+    if (!this.isFirstStep()) return (
       <div className="dugout-message-large">
         <div className="dugout-message-large-title">{this.currentStep().title}</div>
-        <div className="dugout-message-large-text">cat cat cat cat cat</div>
+        <div className="dugout-message-large-text">{this.currentStep().description}</div>
       </div>
     );
   },
 
-  componentDidMount() {
-    this.requestGuides();
-  },
-
   clickedHandle() {
-    GuideStore.completeStep();
+    if (this.isFirstStep()) GuideStore.completeStep();
   },
 
   render() {
-    if (!this.currentGuide()) return null;
-    const element = this.currentStep().element;
-    let {left, top} = element.getBoundingClientRect();
-    left = left + element.clientWidth / 2;
-    top = top + element.clientHeight / 2;
-
     return (
       <div>
-        <div className="dugout-blinker" onClick={this.onClick} style={{top, left}}>
-          <div className="dugout-blink-inner-1" />
-          <div className="dugout-blink-inner-2" />
-        </div>
-        <div onClick={this.onClick} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !!this.state.step})}>
-          <div className="dugout-message" onClick={this.clickedHandle}>{this.currentStep().title}</div>
+        <div onClick={this.clickedHandle} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !this.isFirstStep()})}>
+          <div className="dugout-message">{this.currentStep().title}</div>
           {this.largeMessage()}
         </div>
       </div>
