@@ -51,6 +51,8 @@ const DugoutHelper = React.createClass({
   },
 
   render() {
+    if (GuideStore.getCurrentGuide().steps <= 0) return null;
+
     return (
       <div>
         <div onClick={this.clickedHandle} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !this.isFirstStep()})}>
