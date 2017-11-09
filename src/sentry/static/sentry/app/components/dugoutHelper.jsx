@@ -1,5 +1,6 @@
 import React from 'react';
 import Reflux from 'reflux';
+import classNames from 'classnames';
 import ApiMixin from '../mixins/apiMixin';
 import GuideStore from '../stores/guideStore';
 
@@ -67,6 +68,15 @@ const DugoutHelper = React.createClass({
     }
   },
 
+  largeMessage() {
+    if (this.state.step > 0) return (
+      <div className="dugout-message-large">
+        <div className="dugout-message-large-title">{this.currentStep().title}</div>
+        <div className="dugout-message-large-text">cat cat cat cat cat</div>
+      </div>
+    );
+  },
+
   componentDidMount() {
     this.requestGuides();
   },
@@ -84,10 +94,9 @@ const DugoutHelper = React.createClass({
           <div className="dugout-blink-inner-1" />
           <div className="dugout-blink-inner-2" />
         </div>
-        <div className="dugout-drawer">
-          <div className="dugout-message" onClick={this.onClick}>
-            {this.currentStep().title}
-          </div>
+        <div onClick={this.onClick} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !!this.state.step})}>
+          <div className="dugout-message">{this.currentStep().title}</div>
+          {this.largeMessage()}
         </div>
       </div>
     );
