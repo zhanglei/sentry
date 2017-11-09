@@ -79,14 +79,6 @@ exports[`CreateProject render() should render roles when available and allowed, 
                 "name": "member",
               },
             },
-            Object {
-              "allowed": true,
-              "role": Object {
-                "desc": "another role",
-                "id": "2",
-                "name": "bar",
-              },
-            },
           ]
         }
         selectedRole="1"
@@ -139,46 +131,15 @@ exports[`CreateProject render() should render roles when available and allowed, 
                   </div>
                 </label>
               </li>
-              <li
-                className="radio"
-                onClick={[Function]}
-                style={Object {}}
-              >
-                <label
-                  style={Object {}}
-                >
-                  <Radio
-                    checked={false}
-                    id="2"
-                    readOnly={true}
-                    value="bar"
-                  >
-                    <input
-                      checked={false}
-                      className="radio-select"
-                      id="2"
-                      readOnly={true}
-                      type="radio"
-                      value="bar"
-                    />
-                  </Radio>
-                  bar
-                  <div
-                    className="help-block"
-                  >
-                    another role
-                  </div>
-                </label>
-              </li>
             </ul>
           </div>
         </div>
       </RoleSelect>
       <TeamSelect
         selectedTeams={
-          Array [
+          Set {
             "bar",
-          ]
+          }
         }
         teams={
           Array [

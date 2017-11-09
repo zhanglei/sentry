@@ -661,88 +661,105 @@ exports[`Issues Similar View renders with mocked data 1`] = `
                             <div
                               className="event-issue-header"
                             >
-                              <h3
-                                className="truncate"
+                              <GuideAnchor
+                                target="project-first-issue"
                               >
-                                <Link
-                                  onlyActiveOnIndex={false}
-                                  style={Object {}}
-                                  to="/orgId/projectId/issues/271/"
+                                <div
+                                  onClick={[Function]}
                                 >
-                                  <a
-                                    onClick={[Function]}
-                                    style={Object {}}
+                                  <h3
+                                    className="truncate"
                                   >
-                                    <span
-                                      className="error-level truncate"
+                                    <Link
+                                      onlyActiveOnIndex={false}
+                                      style={Object {}}
+                                      to="/orgId/projectId/issues/271/"
                                     >
-                                      error
-                                    </span>
-                                    <span
-                                      className="icon icon-soundoff"
-                                    />
-                                    <span
-                                      className="icon icon-star-solid"
-                                    />
-                                    <EventOrGroupTitle
-                                      data={
-                                        Object {
-                                          "annotations": Array [],
-                                          "assignedTo": null,
-                                          "count": "90",
-                                          "culprit": "length(app/views/groupSimilar/groupSimilarView)",
-                                          "firstSeen": "2017-07-10T18:32:43Z",
-                                          "hasSeen": false,
-                                          "id": "271",
-                                          "isBookmarked": false,
-                                          "isPublic": false,
-                                          "isSubscribed": true,
-                                          "lastSeen": "2017-07-24T23:41:44Z",
-                                          "level": "error",
-                                          "logger": "javascript",
-                                          "metadata": Object {
-                                            "type": "TypeError",
-                                            "value": "Cannot read property 'length' of undefined",
-                                          },
-                                          "numComments": 0,
-                                          "permalink": "http://localhost:8000/sentry/internal/issues/271/",
-                                          "project": Object {
-                                            "name": "Internal",
-                                            "slug": "internal",
-                                          },
-                                          "shareId": "312e323731",
-                                          "shortId": "INTERNAL-4G",
-                                          "status": "resolved",
-                                          "statusDetails": Object {},
-                                          "subscriptionDetails": null,
-                                          "title": "TypeError: Cannot read property 'length' of undefined",
-                                          "type": "error",
-                                          "userCount": 3,
-                                        }
-                                      }
-                                      includeLink={true}
-                                      orgId="orgId"
-                                      projectId="projectId"
-                                    >
-                                      <span>
+                                      <a
+                                        onClick={[Function]}
+                                        style={Object {}}
+                                      >
                                         <span
-                                          style={
+                                          className="icon icon-soundoff"
+                                        />
+                                        <span
+                                          className="icon icon-star-solid"
+                                        />
+                                        <EventOrGroupTitle
+                                          data={
                                             Object {
-                                              "marginRight": 10,
+                                              "annotations": Array [],
+                                              "assignedTo": null,
+                                              "count": "90",
+                                              "culprit": "length(app/views/groupSimilar/groupSimilarView)",
+                                              "firstSeen": "2017-07-10T18:32:43Z",
+                                              "hasSeen": false,
+                                              "id": "271",
+                                              "isBookmarked": false,
+                                              "isPublic": false,
+                                              "isSubscribed": true,
+                                              "lastSeen": "2017-07-24T23:41:44Z",
+                                              "level": "error",
+                                              "logger": "javascript",
+                                              "metadata": Object {
+                                                "type": "TypeError",
+                                                "value": "Cannot read property 'length' of undefined",
+                                              },
+                                              "numComments": 0,
+                                              "permalink": "http://localhost:8000/sentry/internal/issues/271/",
+                                              "project": Object {
+                                                "name": "Internal",
+                                                "slug": "internal",
+                                              },
+                                              "shareId": "312e323731",
+                                              "shortId": "INTERNAL-4G",
+                                              "status": "resolved",
+                                              "statusDetails": Object {},
+                                              "subscriptionDetails": null,
+                                              "title": "TypeError: Cannot read property 'length' of undefined",
+                                              "type": "error",
+                                              "userCount": 3,
                                             }
                                           }
+                                          includeLink={true}
+                                          orgId="orgId"
+                                          projectId="projectId"
                                         >
-                                          TypeError
-                                        </span>
-                                        <em>
-                                          length(app/views/groupSimilar/groupSimilarView)
-                                        </em>
-                                        <br />
-                                      </span>
-                                    </EventOrGroupTitle>
-                                  </a>
-                                </Link>
-                              </h3>
+                                          <span>
+                                            <span
+                                              style={
+                                                Object {
+                                                  "marginRight": 10,
+                                                }
+                                              }
+                                            >
+                                              TypeError
+                                            </span>
+                                            <em>
+                                              length(app/views/groupSimilar/groupSimilarView)
+                                            </em>
+                                            <br />
+                                          </span>
+                                        </EventOrGroupTitle>
+                                      </a>
+                                    </Link>
+                                  </h3>
+                                  <span
+                                    className="project-first-issue dugout-ping"
+                                    onClick={[Function]}
+                                    style={
+                                      Object {
+                                        "backgroundColor": "red",
+                                        "bottom": 0,
+                                        "height": "2pt",
+                                        "left": 0,
+                                        "position": "absolute",
+                                        "width": "2pt",
+                                      }
+                                    }
+                                  />
+                                </div>
+                              </GuideAnchor>
                               <div
                                 className="event-message truncate"
                               >
@@ -1726,88 +1743,105 @@ exports[`Issues Similar View renders with mocked data 2`] = `
                             <div
                               className="event-issue-header"
                             >
-                              <h3
-                                className="truncate"
+                              <GuideAnchor
+                                target="project-first-issue"
                               >
-                                <Link
-                                  onlyActiveOnIndex={false}
-                                  style={Object {}}
-                                  to="/orgId/projectId/issues/271/"
+                                <div
+                                  onClick={[Function]}
                                 >
-                                  <a
-                                    onClick={[Function]}
-                                    style={Object {}}
+                                  <h3
+                                    className="truncate"
                                   >
-                                    <span
-                                      className="error-level truncate"
+                                    <Link
+                                      onlyActiveOnIndex={false}
+                                      style={Object {}}
+                                      to="/orgId/projectId/issues/271/"
                                     >
-                                      error
-                                    </span>
-                                    <span
-                                      className="icon icon-soundoff"
-                                    />
-                                    <span
-                                      className="icon icon-star-solid"
-                                    />
-                                    <EventOrGroupTitle
-                                      data={
-                                        Object {
-                                          "annotations": Array [],
-                                          "assignedTo": null,
-                                          "count": "90",
-                                          "culprit": "length(app/views/groupSimilar/groupSimilarView)",
-                                          "firstSeen": "2017-07-10T18:32:43Z",
-                                          "hasSeen": false,
-                                          "id": "271",
-                                          "isBookmarked": false,
-                                          "isPublic": false,
-                                          "isSubscribed": true,
-                                          "lastSeen": "2017-07-24T23:41:44Z",
-                                          "level": "error",
-                                          "logger": "javascript",
-                                          "metadata": Object {
-                                            "type": "TypeError",
-                                            "value": "Cannot read property 'length' of undefined",
-                                          },
-                                          "numComments": 0,
-                                          "permalink": "http://localhost:8000/sentry/internal/issues/271/",
-                                          "project": Object {
-                                            "name": "Internal",
-                                            "slug": "internal",
-                                          },
-                                          "shareId": "312e323731",
-                                          "shortId": "INTERNAL-4G",
-                                          "status": "resolved",
-                                          "statusDetails": Object {},
-                                          "subscriptionDetails": null,
-                                          "title": "TypeError: Cannot read property 'length' of undefined",
-                                          "type": "error",
-                                          "userCount": 3,
-                                        }
-                                      }
-                                      includeLink={true}
-                                      orgId="orgId"
-                                      projectId="projectId"
-                                    >
-                                      <span>
+                                      <a
+                                        onClick={[Function]}
+                                        style={Object {}}
+                                      >
                                         <span
-                                          style={
+                                          className="icon icon-soundoff"
+                                        />
+                                        <span
+                                          className="icon icon-star-solid"
+                                        />
+                                        <EventOrGroupTitle
+                                          data={
                                             Object {
-                                              "marginRight": 10,
+                                              "annotations": Array [],
+                                              "assignedTo": null,
+                                              "count": "90",
+                                              "culprit": "length(app/views/groupSimilar/groupSimilarView)",
+                                              "firstSeen": "2017-07-10T18:32:43Z",
+                                              "hasSeen": false,
+                                              "id": "271",
+                                              "isBookmarked": false,
+                                              "isPublic": false,
+                                              "isSubscribed": true,
+                                              "lastSeen": "2017-07-24T23:41:44Z",
+                                              "level": "error",
+                                              "logger": "javascript",
+                                              "metadata": Object {
+                                                "type": "TypeError",
+                                                "value": "Cannot read property 'length' of undefined",
+                                              },
+                                              "numComments": 0,
+                                              "permalink": "http://localhost:8000/sentry/internal/issues/271/",
+                                              "project": Object {
+                                                "name": "Internal",
+                                                "slug": "internal",
+                                              },
+                                              "shareId": "312e323731",
+                                              "shortId": "INTERNAL-4G",
+                                              "status": "resolved",
+                                              "statusDetails": Object {},
+                                              "subscriptionDetails": null,
+                                              "title": "TypeError: Cannot read property 'length' of undefined",
+                                              "type": "error",
+                                              "userCount": 3,
                                             }
                                           }
+                                          includeLink={true}
+                                          orgId="orgId"
+                                          projectId="projectId"
                                         >
-                                          TypeError
-                                        </span>
-                                        <em>
-                                          length(app/views/groupSimilar/groupSimilarView)
-                                        </em>
-                                        <br />
-                                      </span>
-                                    </EventOrGroupTitle>
-                                  </a>
-                                </Link>
-                              </h3>
+                                          <span>
+                                            <span
+                                              style={
+                                                Object {
+                                                  "marginRight": 10,
+                                                }
+                                              }
+                                            >
+                                              TypeError
+                                            </span>
+                                            <em>
+                                              length(app/views/groupSimilar/groupSimilarView)
+                                            </em>
+                                            <br />
+                                          </span>
+                                        </EventOrGroupTitle>
+                                      </a>
+                                    </Link>
+                                  </h3>
+                                  <span
+                                    className="project-first-issue dugout-ping"
+                                    onClick={[Function]}
+                                    style={
+                                      Object {
+                                        "backgroundColor": "red",
+                                        "bottom": 0,
+                                        "height": "2pt",
+                                        "left": 0,
+                                        "position": "absolute",
+                                        "width": "2pt",
+                                      }
+                                    }
+                                  />
+                                </div>
+                              </GuideAnchor>
                               <div
                                 className="event-message truncate"
                               >

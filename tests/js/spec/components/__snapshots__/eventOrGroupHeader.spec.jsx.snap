@@ -4,45 +4,49 @@ exports[`EventOrGroupHeader Event hides level tag 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/groupID/events/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": undefined,
-            "eventID": "eventID",
-            "groupID": "groupID",
-            "id": "id",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "default",
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/groupID/events/id/"
+      >
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": undefined,
+              "eventID": "eventID",
+              "groupID": "groupID",
+              "id": "id",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "default",
+            }
           }
-        }
-        hideLevel={true}
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          hideLevel={true}
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
 </div>
 `;
 
@@ -50,44 +54,48 @@ exports[`EventOrGroupHeader Event renders with \`type = csp\` 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/groupID/events/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": undefined,
-            "eventID": "eventID",
-            "groupID": "groupID",
-            "id": "id",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "csp",
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/groupID/events/id/"
+      >
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": undefined,
+              "eventID": "eventID",
+              "groupID": "groupID",
+              "id": "id",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "csp",
+            }
           }
-        }
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
   <div
     className="event-message truncate"
   >
@@ -104,44 +112,48 @@ exports[`EventOrGroupHeader Event renders with \`type = default\` 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/groupID/events/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": undefined,
-            "eventID": "eventID",
-            "groupID": "groupID",
-            "id": "id",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "default",
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/groupID/events/id/"
+      >
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": undefined,
+              "eventID": "eventID",
+              "groupID": "groupID",
+              "id": "id",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "default",
+            }
           }
-        }
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
 </div>
 `;
 
@@ -149,44 +161,48 @@ exports[`EventOrGroupHeader Event renders with \`type = error\` 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/groupID/events/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": undefined,
-            "eventID": "eventID",
-            "groupID": "groupID",
-            "id": "id",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "error",
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/groupID/events/id/"
+      >
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": undefined,
+              "eventID": "eventID",
+              "groupID": "groupID",
+              "id": "id",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "error",
+            }
           }
-        }
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
   <div
     className="event-message truncate"
   >
@@ -203,48 +219,47 @@ exports[`EventOrGroupHeader Group renders with \`type = csp\` 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="error-level truncate"
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/id/"
       >
-        error
-      </span>
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": "culprit",
-            "id": "id",
-            "level": "error",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "csp",
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": "culprit",
+              "id": "id",
+              "level": "error",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "csp",
+            }
           }
-        }
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
   <div
     className="event-message truncate"
   >
@@ -261,48 +276,47 @@ exports[`EventOrGroupHeader Group renders with \`type = default\` 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="error-level truncate"
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/id/"
       >
-        error
-      </span>
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": "culprit",
-            "id": "id",
-            "level": "error",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "default",
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": "culprit",
+              "id": "id",
+              "level": "error",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "default",
+            }
           }
-        }
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
   <div
     className="event-message truncate"
   >
@@ -319,48 +333,47 @@ exports[`EventOrGroupHeader Group renders with \`type = error\` 1`] = `
 <div
   className="event-issue-header"
 >
-  <h3
-    className="truncate"
+  <GuideAnchor
+    target="project-first-issue"
   >
-    <Link
-      onlyActiveOnIndex={false}
-      style={Object {}}
-      to="/orgId/projectId/issues/id/"
+    <h3
+      className="truncate"
     >
-      <span
-        className="error-level truncate"
+      <Link
+        onlyActiveOnIndex={false}
+        style={Object {}}
+        to="/orgId/projectId/issues/id/"
       >
-        error
-      </span>
-      <span
-        className="icon icon-soundoff"
-      />
-      <span
-        className="icon icon-star-solid"
-      />
-      <EventOrGroupTitle
-        data={
-          Object {
-            "culprit": "culprit",
-            "id": "id",
-            "level": "error",
-            "metadata": Object {
-              "directive": "metadata directive",
-              "message": "metadata message",
-              "title": "metadata title",
-              "type": "metadata type",
-              "uri": "metadata uri",
-              "value": "metadata value",
-            },
-            "type": "error",
+        <span
+          className="icon icon-soundoff"
+        />
+        <span
+          className="icon icon-star-solid"
+        />
+        <EventOrGroupTitle
+          data={
+            Object {
+              "culprit": "culprit",
+              "id": "id",
+              "level": "error",
+              "metadata": Object {
+                "directive": "metadata directive",
+                "message": "metadata message",
+                "title": "metadata title",
+                "type": "metadata type",
+                "uri": "metadata uri",
+                "value": "metadata value",
+              },
+              "type": "error",
+            }
           }
-        }
-        includeLink={true}
-        orgId="orgId"
-        projectId="projectId"
-      />
-    </Link>
-  </h3>
+          includeLink={true}
+          orgId="orgId"
+          projectId="projectId"
+        />
+      </Link>
+    </h3>
+  </GuideAnchor>
   <div
     className="event-message truncate"
   >

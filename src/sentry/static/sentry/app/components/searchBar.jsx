@@ -76,13 +76,7 @@ const SearchBar = React.createClass({
               onChange={this.onQueryChange}
             />
             <span className="icon-search" />
-            {this.state.query !== this.props.defaultQuery && (
-              <div>
-                <a className="search-clear-form" onClick={this.clearSearch}>
-                  <span className="icon-circle-cross" />
-                </a>
-              </div>
-            )}
+            {/* #HACK removing b/c it's weirdly positioned */}
           </div>
         </form>
       </div>

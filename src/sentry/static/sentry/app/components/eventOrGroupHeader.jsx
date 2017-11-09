@@ -5,6 +5,7 @@ import {Link} from 'react-router';
 
 import {Metadata} from '../proptypes';
 import EventOrGroupTitle from './eventOrGroupTitle';
+import GuideAnchor from './guideAnchor';
 
 /**
  * Displays an event or group/issue title (i.e. in Stream)
@@ -16,7 +17,6 @@ class EventOrGroupHeader extends React.Component {
     /** Either an issue or event **/
     data: PropTypes.shape({
       id: PropTypes.string,
-      level: PropTypes.string,
       type: PropTypes.oneOf(['error', 'csp', 'default']).isRequired,
       title: PropTypes.string,
       metadata: Metadata,
@@ -25,7 +25,6 @@ class EventOrGroupHeader extends React.Component {
     }),
     includeLink: PropTypes.bool,
     hideIcons: PropTypes.bool,
-    hideLevel: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -47,8 +46,8 @@ class EventOrGroupHeader extends React.Component {
   }
 
   getTitle() {
-    let {hideLevel, hideIcons, includeLink, orgId, projectId, data} = this.props;
-    let {id, level, groupID} = data || {};
+    let {hideIcons, includeLink, orgId, projectId, data} = this.props;
+    let {id, groupID} = data || {};
     let isEvent = !!data.eventID;
 
     let props = {};
@@ -64,7 +63,6 @@ class EventOrGroupHeader extends React.Component {
 
     return (
       <Wrapper {...props}>
-        {!hideLevel && level && <span className="error-level truncate">{level}</span>}
         {!hideIcons && <span className="icon icon-soundoff" />}
         {!hideIcons && <span className="icon icon-star-solid" />}
         <EventOrGroupTitle {...this.props} />
@@ -79,7 +77,9 @@ class EventOrGroupHeader extends React.Component {
 
     return (
       <div className={cx}>
-        <h3 className="truncate">{this.getTitle()}</h3>
+        <GuideAnchor target="project-first-issue">
+          <h3 className="truncate">{this.getTitle()}</h3>
+        </GuideAnchor>
         {message && (
           <div className="event-message truncate">
             <span className="message">{message}</span>

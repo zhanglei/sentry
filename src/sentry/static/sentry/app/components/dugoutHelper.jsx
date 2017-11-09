@@ -1,9 +1,14 @@
 import React from 'react';
+import Reflux from 'reflux';
 import ApiMixin from '../mixins/apiMixin';
+import GuideStore from '../stores/guideStore';
 
 const DugoutHelper = React.createClass({
 
-  mixins: [ApiMixin],
+  mixins: [
+    ApiMixin,
+    Reflux.listenTo(GuideStore, 'onGuideChange'),
+  ],
 
   getInitialState(props) {
    return {
@@ -13,6 +18,7 @@ const DugoutHelper = React.createClass({
    };
   },
 
+
   currentGuide() {
     return this.state.guides[this.state.guide];
   },
@@ -21,12 +27,16 @@ const DugoutHelper = React.createClass({
     return this.currentGuide().steps[this.state.step];
   },
 
+  onGuideChange(guideState) {
+
+  },
+
   requestGuides() {
     this.api.request(`/dugout/${this.props.organizationId}/`, {
       method: 'GET',
       success: (response) => {
         if (response) this.setupGuides(response);
-        window.setTimeout(this.requestGuides, 3000);
+        window.setTimeout(this.requestGuides, 5000);
       }
     });
   },
