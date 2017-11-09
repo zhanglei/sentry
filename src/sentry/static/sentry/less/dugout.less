@@ -87,6 +87,13 @@
   display: inline-block;
 }
 
+.guide-anchor.button {
+  & > *:not(.guide-anchor-ping) {
+    position: relative;
+    z-index: 1000;
+  }
+}
+
 .dugout-drawer {
   transition: .2s height;
   position: fixed;
