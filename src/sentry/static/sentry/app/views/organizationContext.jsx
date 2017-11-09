@@ -14,6 +14,7 @@ import TeamStore from '../stores/teamStore';
 import ProjectStore from '../stores/projectStore';
 import ProjectActions from '../actions/projectActions';
 import ConfigStore from '../stores/configStore';
+import GuideStore from '../stores/guideStore';
 
 import OrganizationState from '../mixins/organizationState';
 
@@ -56,6 +57,7 @@ const OrganizationContext = React.createClass({
 
   componentWillMount() {
     this.fetchData();
+    this.fetchGuide();
   },
 
   componentWillReceiveProps(nextProps) {
@@ -80,6 +82,16 @@ const OrganizationContext = React.createClass({
     // org details endpoint, which will propagate re-rendering
     // for the entire component tree
     this.remountComponent();
+  },
+
+  fetchGuide() {
+    this.api.request(`/dugout/${this.props.params.orgId}/`, {
+      method: 'GET',
+      success: (response) => {
+        GuideStore.loadData(response);
+      }
+    });
+    window.setTimeout(this.fetchGuide, 3000)
   },
 
   fetchData() {

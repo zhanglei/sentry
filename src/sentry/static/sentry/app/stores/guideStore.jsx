@@ -1,17 +1,18 @@
 import Reflux from 'reflux';
+import ApiMixin from '../mixins/apiMixin';
 
 const GuideStore = Reflux.createStore({
   init() {
     this._internal = {
         step: -1,
         guide: {
-            starting_message: 'You sent your first Python event! Learn what to do next.',
+            starting_message: 'Dummy text.',
             complete_message: 'Go to docs.sentry.io/learn/releases to learn more.',
             steps: [
                 {
                     title: 'Don\'t get alerts for issues you\'ve fixed.',
                     description: 'Setting up release tracking lets you mark issues as "Resolved in next release". Open your first issue to learn.',
-                    target: 'EARTH-1',
+                    target: 'EARTH-4',
                 },
                 {
                     title: 'A better issue resolution flow',
@@ -28,8 +29,34 @@ const GuideStore = Reflux.createStore({
     };
   },
 
+  mixins: [
+    ApiMixin,
+  ],
+
+  loadData(guide) {
+    if (guide && JSON.stringify(this._internal.guide) != JSON.stringify(guide)) {
+      this._internal.guide = guide;
+      this.trigger(this._internal);
+    }
+  },
+
   set(guide) {
     this._internal.guide = guide;
+  },
+
+  getCurrentStep() {
+    if (this._internal.step >= 0) {
+      return this._internal.guide.steps[this._internal.step];
+    }
+    return null;
+  },
+
+  getFirstStep() {
+    return this._internal.guide.steps[0];
+  },
+
+  getCurrentGuide() {
+    return this._internal.guide || null;
   },
 
   completeStep() {

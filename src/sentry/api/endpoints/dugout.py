@@ -10,7 +10,7 @@ from rest_framework.response import Response
 
 from sentry.api.bases.organization import OrganizationEndpoint
 from sentry.guide import manager
-from sentry.models import Project, UserGuide, UserGuideStatus
+from sentry.models import Group, Project, UserGuide, UserGuideStatus
 
 
 class DugoutEndpoint(OrganizationEndpoint):
@@ -43,9 +43,10 @@ class DugoutEndpoint(OrganizationEndpoint):
         ).all())
 
         project = Project.objects.first()
+        group = Group.objects.filter(project=project)[4]
+
         guides = queued_guides + extra_guides
-        return Response([guide.to_dict(project=project, organization=organization)
-                         for guide in guides])
+        return Response(guides[0].to_dict(project=project, organization=organization, group=group))
 
     def put(self, request, organization):
         req = json.loads(request.body)

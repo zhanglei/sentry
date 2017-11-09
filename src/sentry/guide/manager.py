@@ -2,20 +2,18 @@ from __future__ import absolute_import
 
 
 class Guide(object):
-    def __init__(self, slug, starting_url, steps, required_context, complete):
+    def __init__(self, slug, starting_message, complete_message, steps):
         self.slug = slug
-        self.starting_url = starting_url
+        self.starting_message = starting_message
+        self.complete_message = complete_message
         self.steps = steps
-        self.required_context = required_context
-        self.complete = complete
 
     def to_dict(self, **kwargs):
-        assert set(self.required_context) <= set(kwargs)
-
         return {
             'slug': self.slug,
+            'starting_message': self.starting_message,
+            'complete_message': self.complete_message,
             'steps': [step.to_dict(**kwargs) for step in self.steps],
-            'complete': self.complete,
         }
 
 
@@ -24,8 +22,8 @@ class GuideManager(object):
         self._slugs = set()
         self._slug_registry = {}
 
-    def add(self, slug, starting_url, steps, required_context, complete):
-        feature = Guide(slug, starting_url, steps, required_context, complete)
+    def add(self, slug, starting_message, complete_message, steps):
+        feature = Guide(slug, starting_message, complete_message, steps)
         self._slug_registry[slug] = feature
         self._slugs.add(slug)
 

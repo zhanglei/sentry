@@ -22,8 +22,16 @@ const DugoutHelper = React.createClass({
     return GuideStore._internal.step == -1;
   },
 
+  currentStep() {
+    return GuideStore.getCurrentStep() || GuideStore.getFirstStep();
+  },
+
+  currentGuide() {
+    return GuideStore.getCurrentGuide();
+  },
+
   onGuideChange(guideState) {
-    const {title, description} = GuideStore._internal.guide.steps[GuideStore._internal.step];
+    const {title, description} = GuideStore.getCurrentStep();
     this.setState({title, description});
   },
 
@@ -44,7 +52,8 @@ const DugoutHelper = React.createClass({
     return (
       <div>
         <div onClick={this.clickedHandle} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !this.isFirstStep()})}>
-          <div className="dugout-message">{this.state.title}</div>
+          <div className="dugout-message">{this.currentGuide().starting_message}</div>
+
           {this.largeMessage()}
         </div>
       </div>
