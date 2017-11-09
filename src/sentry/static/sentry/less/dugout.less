@@ -12,6 +12,20 @@
   }
 }
 
+@keyframes hover {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
 @keyframes slideup {
   0% {
     opacity: 0;
@@ -34,7 +48,7 @@
   cursor: pointer;
   z-index: 999;
   position: relative;
-  animation: 1s ease-out infinite expand;
+  animation: 1.5s ease-out infinite expand;
 
   &, &:before, &:after {
     position: absolute;
@@ -74,7 +88,7 @@
 }
 
 .dugout-message {
-  animation: .2s ease-in-out slideup;
+  animation: .2s ease-in-out slideup, 2s ease-in-out 1s infinite hover;
   background: @green;
   padding: .1em 1em;
   margin-bottom: .5em;
