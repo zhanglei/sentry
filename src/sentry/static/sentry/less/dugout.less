@@ -48,6 +48,7 @@
   cursor: pointer;
   z-index: 999;
   position: relative;
+  pointer-events: none;
   animation: 1.5s ease-out infinite expand;
   visibility: hidden;
 
@@ -97,10 +98,12 @@
   justify-content: flex-start;
   flex-direction: column;
   z-index: 99;
+  cursor: pointer;
 }
 
 .dugout-drawer--engaged {
   height: 200px;
+  cursor: default;
 
   .dugout-message { opacity: 0; }
 }
@@ -126,6 +129,8 @@
   width: 100%;
   height: 100%;
   color: #fff;
+  padding-bottom: 2em;
+  margin-bottom: -2em;
 }
 
 .dugout-message-large-title {
