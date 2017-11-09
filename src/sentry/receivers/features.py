@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from sentry.adoption import manager
-from sentry.models import FeatureAdoption
+from sentry.models import FeatureAdoption, UserGuide, UserGuideStatus
 from sentry.plugins import IssueTrackingPlugin, IssueTrackingPlugin2
 from sentry.plugins.bases.notify import NotificationPlugin
 from sentry.receivers.rules import DEFAULT_RULE_LABEL, DEFAULT_RULE_DATA
@@ -39,6 +39,9 @@ DEFAULT_TAGS = frozenset(
 def record_first_event(project, group, **kwargs):
     FeatureAdoption.objects.record(
         organization_id=project.organization_id, feature_slug="first_event", complete=True
+    )
+    UserGuide.objects.create(
+        organization_id=project.organization_id, user_id=1, slug='setup-release-tracking', status=UserGuideStatus.QUEUED
     )
 
 

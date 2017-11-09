@@ -38,15 +38,21 @@ class DugoutEndpoint(OrganizationEndpoint):
             )
 
         # always include queued
-        queued_guides = list(UserGuide.objects.filter(
+        project = Project.objects.order_by('-date_added').first()
+        group = Group.objects.filter(project=project).first()
+        queued_guide = UserGuide.objects.filter(
             user=request.user, organization=organization, status=UserGuideStatus.QUEUED
-        ).all())
+        ).first()
 
-        project = Project.objects.first()
-        group = Group.objects.filter(project=project)[4]
-
-        guides = queued_guides + extra_guides
-        return Response(guides[0].to_dict(project=project, organization=organization, group=group))
+        if queued_guide:
+            result = manager.get_by_slug(
+                queued_guide.slug).to_dict(
+                project=project,
+                organization=organization,
+                group=group)
+        else:
+            result = {}
+        return Response(result)
 
     def put(self, request, organization):
         req = json.loads(request.body)
