@@ -14,7 +14,9 @@ const GuideAnchor = React.createClass({
   ],
 
   getInitialState() {
-    return {active: false};
+    return {
+      active: GuideStore.getCurrentStep() && GuideStore.getCurrentStep().target == this.props.target
+    };
   },
 
   onGuideChange(guideState) {
@@ -35,16 +37,6 @@ const GuideAnchor = React.createClass({
   },
 
   render() {
-    let target = this.props.target + ' dugout-ping';
-    if (this.state.active) {target = target + ' active';}
-    let style = {
-        position: 'absolute',
-        left: 0,
-        bottom: 0,
-        width: '3pt',
-        height: '3pt',
-        backgroundColor: 'red'
-    };
     return (
       <div className={classNames('guide-anchor', this.props.type)} onClick={this.handleClick}>
           {this.props.children}

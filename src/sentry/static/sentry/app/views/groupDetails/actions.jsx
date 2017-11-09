@@ -18,6 +18,8 @@ import LinkWithConfirmation from '../../components/linkWithConfirmation';
 import MenuItem from '../../components/menuItem';
 import ShareIssue from '../../components/shareIssue';
 import TooltipMixin from '../../mixins/tooltip';
+import GuideAnchor from '../../components/guideAnchor';
+
 
 const ResolveActions = React.createClass({
   propTypes: {
@@ -103,59 +105,61 @@ const ResolveActions = React.createClass({
             <span className="icon-checkmark" style={{marginRight: 5}} />
             {t('Resolve')}
           </a>
-          <DropdownLink
-            key="resolve-dropdown"
-            caret={true}
-            className={resolveClassName}
-            title=""
-          >
-            <MenuItem header={true}>{t('Resolved In')}</MenuItem>
-            <MenuItem noAnchor={true}>
-              <a
-                onClick={() => {
-                  return (
-                    hasRelease &&
-                    onUpdate({
-                      status: 'resolved',
-                      statusDetails: {
-                        inNextRelease: true,
-                      },
-                    })
-                  );
-                }}
-                className={actionClassName}
-                title={actionTitle}
-              >
-                {t('The next release')}
-              </a>
-              <a
-                onClick={() => {
-                  return (
-                    hasRelease &&
-                    onUpdate({
-                      status: 'resolved',
-                      statusDetails: {
-                        inRelease: latestRelease ? latestRelease.version : 'latest',
-                      },
-                    })
-                  );
-                }}
-                className={actionClassName}
-                title={actionTitle}
-              >
-                {latestRelease
-                  ? t('The current release (%s)', getShortVersion(latestRelease.version))
-                  : t('The current release')}
-              </a>
-              <a
-                onClick={() => hasRelease && this.setState({modal: true})}
-                className={actionClassName}
-                title={actionTitle}
-              >
-                {t('Another version ...')}
-              </a>
-            </MenuItem>
-          </DropdownLink>
+          <GuideAnchor target="issue-resolve-drop-down" type="button">
+            <DropdownLink
+              key="resolve-dropdown"
+              caret={true}
+              className={resolveClassName}
+              title=""
+            >
+              <MenuItem header={true}>{t('Resolved In')}</MenuItem>
+              <MenuItem noAnchor={true}>
+                <a
+                  onClick={() => {
+                    return (
+                      hasRelease &&
+                      onUpdate({
+                        status: 'resolved',
+                        statusDetails: {
+                          inNextRelease: true,
+                        },
+                      })
+                    );
+                  }}
+                  className={actionClassName}
+                  title={actionTitle}
+                >
+                  {t('The next release')}
+                </a>
+                <a
+                  onClick={() => {
+                    return (
+                      hasRelease &&
+                      onUpdate({
+                        status: 'resolved',
+                        statusDetails: {
+                          inRelease: latestRelease ? latestRelease.version : 'latest',
+                        },
+                      })
+                    );
+                  }}
+                  className={actionClassName}
+                  title={actionTitle}
+                >
+                  {latestRelease
+                    ? t('The current release (%s)', getShortVersion(latestRelease.version))
+                    : t('The current release')}
+                </a>
+                <a
+                  onClick={() => hasRelease && this.setState({modal: true})}
+                  className={actionClassName}
+                  title={actionTitle}
+                >
+                  {t('Another version ...')}
+                </a>
+              </MenuItem>
+            </DropdownLink>
+          </GuideAnchor>
         </div>
       </div>
     );

@@ -13,7 +13,7 @@ const DugoutHelper = React.createClass({
 
   getInitialState(props) {
    return {
-     title: GuideStore._internal.guide.starting_message,
+     title: GuideStore.getCurrentGuide().starting_message,
      description: ''
    };
   },
@@ -31,8 +31,10 @@ const DugoutHelper = React.createClass({
   },
 
   onGuideChange(guideState) {
-    const {title, description} = GuideStore.getCurrentStep();
-    this.setState({title, description});
+    if (GuideStore.getCurrentStep()) {
+      const {title, description} = GuideStore.getCurrentStep();
+      this.setState({title, description});
+    }
   },
 
   largeMessage() {
