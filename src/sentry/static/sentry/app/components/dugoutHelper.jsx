@@ -13,7 +13,8 @@ const DugoutHelper = React.createClass({
 
   getInitialState(props) {
    return {
-     needsUpdate: false
+     title: GuideStore._internal.guide.starting_message,
+     description: ''
    };
   },
 
@@ -21,24 +22,16 @@ const DugoutHelper = React.createClass({
     return GuideStore._internal.step == -1;
   },
 
-  currentStep() {
-    const g = GuideStore;
-    if (!this.isFirstStep()) {
-      return GuideStore._internal.guide.steps[GuideStore._internal.step];
-    } else {
-      return GuideStore._internal.guide.steps[0];
-    }
-  },
-
   onGuideChange(guideState) {
-    this.setState({needsUpdate: !!this.state.needsUpdate})
+    const {title, description} = GuideStore._internal.guide.steps[GuideStore._internal.step];
+    this.setState({title, description});
   },
 
   largeMessage() {
-    if (!this.isFirstStep()) return (
+    return (this.isFirstStep()) ? '' : (
       <div className="dugout-message-large">
-        <div className="dugout-message-large-title">{this.currentStep().title}</div>
-        <div className="dugout-message-large-text">{this.currentStep().description}</div>
+        <div className="dugout-message-large-title">{this.state.title}</div>
+        <div className="dugout-message-large-text">{this.state.description}</div>
       </div>
     );
   },
@@ -51,7 +44,7 @@ const DugoutHelper = React.createClass({
     return (
       <div>
         <div onClick={this.clickedHandle} className={classNames('dugout-drawer', {'dugout-drawer--engaged': !this.isFirstStep()})}>
-          <div className="dugout-message">{this.currentStep().title}</div>
+          <div className="dugout-message">{this.state.title}</div>
           {this.largeMessage()}
         </div>
       </div>
