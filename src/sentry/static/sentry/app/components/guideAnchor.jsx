@@ -34,7 +34,7 @@ const GuideAnchor = React.createClass({
 
   render() {
     return (
-      <div className={classNames("guide-anchor", this.props.type)} onClick={this.handleClick}>
+      <div className={classNames('guide-anchor', this.props.type)} onClick={this.handleClick}>
           {this.props.children}
           <span className={classNames(this.props.target, 'guide-anchor-ping', {'active': this.state.active})} onClick={this.handlePingClick} />
       </div>
