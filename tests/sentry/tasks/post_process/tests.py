@@ -6,7 +6,8 @@ from datetime import timedelta
 from django.utils import timezone
 from mock import Mock, patch
 
-from sentry.models import EventTag, Group, GroupSnooze, GroupStatus, TagKey, TagValue
+from sentry import tagstore
+from sentry.models import Group, GroupSnooze, GroupStatus
 from sentry.testutils import TestCase
 from sentry.tasks.merge import merge_group
 from sentry.tasks.post_process import index_event_tags, post_process_group
@@ -119,34 +120,39 @@ class IndexEventTagsTest(TestCase):
                 event_id=event.id,
                 group_id=group.id,
                 project_id=self.project.id,
+                environment_id=self.environment.id,
                 organization_id=self.project.organization_id,
                 tags=[('foo', 'bar'), ('biz', 'baz')],
             )
 
-        tags = list(EventTag.objects.filter(
+        tags = list(tagstore.get_event_tag_qs(
             event_id=event.id,
         ).values_list('key_id', 'value_id'))
         assert len(tags) == 2
 
-        tagkey = TagKey.objects.get(
-            key='foo',
+        tagkey = tagstore.get_tag_key(
             project_id=self.project.id,
+            environment_id=None,
+            key='foo',
         )
-        tagvalue = TagValue.objects.get(
+        tagvalue = tagstore.get_tag_value(
+            project_id=self.project.id,
+            environment_id=None,
             key='foo',
             value='bar',
-            project_id=self.project.id,
         )
         assert (tagkey.id, tagvalue.id) in tags
 
-        tagkey = TagKey.objects.get(
-            key='biz',
+        tagkey = tagstore.get_tag_key(
             project_id=self.project.id,
+            environment_id=None,
+            key='biz',
         )
-        tagvalue = TagValue.objects.get(
+        tagvalue = tagstore.get_tag_value(
+            project_id=self.project.id,
+            environment_id=None,
             key='biz',
             value='baz',
-            project_id=self.project.id,
         )
         assert (tagkey.id, tagvalue.id) in tags
 
@@ -156,11 +162,12 @@ class IndexEventTagsTest(TestCase):
                 event_id=event.id,
                 group_id=group.id,
                 project_id=self.project.id,
+                environment_id=self.environment.id,
                 organization_id=self.project.organization_id,
                 tags=[('foo', 'bar'), ('biz', 'baz')],
             )
 
-        queryset = EventTag.objects.filter(
+        queryset = tagstore.get_event_tag_qs(
             event_id=event.id,
         )
         assert queryset.count() == 2

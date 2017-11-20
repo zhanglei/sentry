@@ -12,7 +12,8 @@ export class Client {
       statusCode: 200,
       body: '',
       method: 'GET',
-      ...response
+      callCount: 0,
+      ...response,
     });
   }
 
@@ -22,12 +23,18 @@ export class Client {
     });
   }
 
+  static getCallCount(response) {
+    return Client.findMockResponse(response.url, response).callCount;
+  }
+
+  clear() {}
+
   merge(params, options) {
     let path = '/projects/' + params.orgId + '/' + params.projectId + '/issues/';
     return this.request(path, {
       method: 'PUT',
       data: {merge: 1},
-      ...options
+      ...options,
     });
   }
 
@@ -44,16 +51,18 @@ export class Client {
         options.error({
           status: 404,
           responseText: 'HTTP 404',
-          responseJSON: null
+          responseJSON: null,
         });
     } else if (response.statusCode !== 200) {
+      response.callCount++;
       options.error &&
         options.error({
           status: response.statusCode,
           responseText: JSON.stringify(response.body),
-          responseJSON: response.body
+          responseJSON: response.body,
         });
     } else {
+      response.callCount++;
       options.success &&
         options.success(response.body, {}, {getResponseHeader: () => {}});
     }

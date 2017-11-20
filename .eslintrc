@@ -1,8 +1,16 @@
 {
+  "extends": [
+    "prettier"
+  ],
+
   "parser": "babel-eslint",
-  "ecmaFeatures": {
-    "jsx": true,
-    "modules": true
+  "parserOptions": {
+    "ecmaVersion": 6,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true,
+      "modules": true
+    }
   },
   "env": {
     "browser": true,
@@ -68,7 +76,7 @@
     ], // http://eslint.org/docs/rules/no-cond-assign
     "no-console": 1, // http://eslint.org/docs/rules/no-console
     "no-debugger": 1, // http://eslint.org/docs/rules/no-debugger
-    "no-alert": 1, // http://eslint.org/docs/rules/no-alert
+    "no-alert": 2, // http://eslint.org/docs/rules/no-alert
     "no-constant-condition": 1, // http://eslint.org/docs/rules/no-constant-condition
     "no-dupe-keys": 2, // http://eslint.org/docs/rules/no-dupe-keys
     "no-duplicate-case": 2, // http://eslint.org/docs/rules/no-duplicate-case
@@ -184,6 +192,7 @@
       2,
       {
         "ignore": [
+          "style",
           "className",
           "children",
           "location",

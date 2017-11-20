@@ -1,7 +1,9 @@
+import {Link} from 'react-router';
 import PropTypes from 'prop-types';
 import React from 'react';
-import {Link} from 'react-router';
 import classNames from 'classnames';
+
+import FlowLayout from '../flowLayout';
 
 import '../../../less/components/button.less';
 
@@ -10,6 +12,7 @@ const Button = React.createClass({
     priority: PropTypes.oneOf(['primary', 'danger']),
     size: PropTypes.oneOf(['small', 'xsmall', 'large']),
     disabled: PropTypes.bool,
+    busy: PropTypes.bool,
     /**
      * Use this prop if button is a react-router link
      */
@@ -18,19 +21,27 @@ const Button = React.createClass({
      * Use this prop if button should use a normal (non-react-router) link
      */
     href: PropTypes.string,
-    onClick: PropTypes.func
+    /**
+     * Tooltip text
+     */
+    title: PropTypes.string,
+    borderless: PropTypes.bool,
+    onClick: PropTypes.func,
   },
 
   getDefaultProps() {
     return {
-      disabled: false
+      disabled: false,
     };
   },
 
   // Intercept onClick and propagate
   handleClick(...args) {
-    let {disabled, onClick} = this.props;
-    if (disabled) return;
+    let {disabled, busy, onClick} = this.props;
+
+    // Don't allow clicks when disabled or busy
+    if (disabled || busy) return;
+
     if (typeof onClick !== 'function') return;
 
     onClick(...args);
@@ -45,6 +56,9 @@ const Button = React.createClass({
       children,
       className,
       disabled,
+      busy,
+      title,
+      borderless,
 
       // destructure from `buttonProps`
       // not necessary, but just in case someone re-orders props
@@ -53,65 +67,58 @@ const Button = React.createClass({
       ...buttonProps
     } = this.props;
 
-    let isPrimary = priority === 'primary';
-    let isDanger = priority === 'danger';
+    let isPrimary = priority === 'primary' && !disabled;
+    let isDanger = priority === 'danger' && !disabled;
+
     let cx = classNames(className, 'button', {
+      tip: !!title,
+      'button-no-border': borderless,
       'button-primary': isPrimary,
       'button-danger': isDanger,
       'button-default': !isPrimary && !isDanger,
       'button-sm': size === 'small',
       'button-xs': size === 'xsmall',
       'button-lg': size === 'large',
-      'button-disabled': disabled
+      'button-busy': busy,
+      'button-disabled': disabled,
     });
+
+    // This container is useless now, but leaves room for when we need to add
+    // components (i.e. icons, busy indicator, etc)
+    let childContainer = (
+      <FlowLayout truncate={false}>
+        <span className="button-label">{children}</span>
+      </FlowLayout>
+    );
 
     // Buttons come in 3 flavors: Link, anchor, and regular buttons. Let's
     // use props to determine which to serve up, so we don't have to think
     // about it. As a bonus, let's ensure all buttons appear as a button
     // control to screen readers. Note: you must still handle tabindex manually.
 
+    // Props common to all elements
+    let componentProps = {
+      disabled,
+      ...buttonProps,
+      onClick: this.handleClick,
+      className: cx,
+      role: 'button',
+      children: childContainer,
+    };
+
     // Handle react-router Links
     if (to) {
-      return (
-        <Link
-          to={to}
-          disabled={disabled}
-          {...buttonProps}
-          onClick={this.handleClick}
-          className={cx}
-          role="button">
-          {children}
-        </Link>
-      );
+      return <Link to={to} {...componentProps} />;
     }
 
     // Handle traditional links
     if (href) {
-      return (
-        <a
-          href={href}
-          disabled={disabled}
-          {...buttonProps}
-          onClick={this.handleClick}
-          className={cx}
-          role="button">
-          {children}
-        </a>
-      );
+      return <a href={href} {...componentProps} />;
     }
 
     // Otherwise, fall back to basic button element
-    return (
-      <button
-        disabled={disabled}
-        {...buttonProps}
-        onClick={this.handleClick}
-        className={cx}
-        role="button">
-        {children}
-      </button>
-    );
-  }
+    return <button {...componentProps} />;
+  },
 });
 
 export default Button;

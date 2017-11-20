@@ -93,6 +93,8 @@ class DetailedOrganizationSerializer(OrganizationSerializer):
             feature_list.append('integrations-v3')
         if features.has('organizations:repos', obj, actor=user):
             feature_list.append('repos')
+        if features.has('organizations:new-settings', obj, actor=user):
+            feature_list.append('new-settings')
 
         if getattr(obj.flags, 'allow_joinleave'):
             feature_list.append('open-membership')

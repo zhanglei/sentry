@@ -8,7 +8,6 @@ import LoadingError from '../components/loadingError';
 import LoadingIndicator from '../components/loadingIndicator';
 import MenuItem from '../components/menuItem';
 import OrganizationState from '../mixins/organizationState';
-import OrganizationHomeContainer from '../components/organizations/homeContainer';
 import {t} from '../locale';
 
 const TeamDetails = React.createClass({
@@ -18,7 +17,7 @@ const TeamDetails = React.createClass({
     return {
       loading: true,
       error: false,
-      team: null
+      team: null,
     };
   },
 
@@ -35,7 +34,7 @@ const TeamDetails = React.createClass({
       this.setState(
         {
           loading: true,
-          error: false
+          error: false,
         },
         this.fetchData
       );
@@ -50,15 +49,15 @@ const TeamDetails = React.createClass({
         this.setState({
           team: data,
           loading: false,
-          error: false
+          error: false,
         });
       },
       error: () => {
         this.setState({
           loading: false,
-          error: true
+          error: true,
         });
-      }
+      },
     });
   },
 
@@ -74,8 +73,8 @@ const TeamDetails = React.createClass({
       this.setState({
         team: {
           ...team,
-          ...data
-        }
+          ...data,
+        },
       });
     }
   },
@@ -90,13 +89,14 @@ const TeamDetails = React.createClass({
     let access = this.getAccess();
 
     return (
-      <OrganizationHomeContainer>
+      <div>
         <h3>{team.name}</h3>
 
-        {access.has('team:admin') &&
+        {access.has('team:admin') && (
           <DropdownLink anchorRight title={t('More')}>
             <MenuItem href={`${routePrefix}/remove/`}>{t('Remove Team')}</MenuItem>
-          </DropdownLink>}
+          </DropdownLink>
+        )}
 
         <ul className="nav nav-tabs border-bottom">
           <ListLink to={`${routePrefix}/settings/`}>{t('Settings')}</ListLink>
@@ -105,11 +105,11 @@ const TeamDetails = React.createClass({
 
         {React.cloneElement(this.props.children, {
           team,
-          onTeamChange: this.onTeamChange
+          onTeamChange: this.onTeamChange,
         })}
-      </OrganizationHomeContainer>
+      </div>
     );
-  }
+  },
 });
 
 export default TeamDetails;

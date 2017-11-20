@@ -6,7 +6,7 @@ import {t} from '../locale';
 export default React.createClass({
   propTypes: {
     plugins: PropTypes.array.isRequired,
-    onEnablePlugin: PropTypes.func.isRequired
+    onEnablePlugin: PropTypes.func.isRequired,
   },
 
   enablePlugin(plugin) {
@@ -28,9 +28,10 @@ export default React.createClass({
                 <li key={plugin.id}>
                   <button
                     onClick={this.enablePlugin.bind(this, plugin)}
-                    className={`ref-plugin-enable-${plugin.id}`}>
+                    className={`ref-plugin-enable-${plugin.id}`}
+                  >
                     <div className={'icon-integration icon-' + plugin.id} />
-                    {plugin.name}
+                    {plugin.shortName || plugin.name}
                   </button>
                 </li>
               );
@@ -39,5 +40,5 @@ export default React.createClass({
         </div>
       </div>
     );
-  }
+  },
 });

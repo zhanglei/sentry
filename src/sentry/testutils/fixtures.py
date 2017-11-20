@@ -21,7 +21,7 @@ import os
 from django.utils import timezone
 
 from sentry.models import (
-    Activity, Event, EventError, EventMapping, Group, Organization, OrganizationMember,
+    Activity, Environment, Event, EventError, EventMapping, Group, Organization, OrganizationMember,
     OrganizationMemberTeam, Project, Team, User, UserEmail, Release, Commit, ReleaseCommit,
     CommitAuthor, Repository, CommitFileChange
 )
@@ -193,6 +193,13 @@ class Fixtures(object):
         )
 
     @fixture
+    def environment(self):
+        return self.create_environment(
+            name='development',
+            project=self.project,
+        )
+
+    @fixture
     def group(self):
         return self.create_group(message=u'\u3053\u3093\u306b\u3061\u306f')
 
@@ -249,6 +256,14 @@ class Fixtures(object):
 
         return Team.objects.create(**kwargs)
 
+    def create_environment(self, **kwargs):
+        project = kwargs.get('project', self.project)
+        name = kwargs.get('name', petname.Generate(1, ' ', letters=10))
+        return Environment.get_or_create(
+            project=project,
+            name=name
+        )
+
     def create_project(self, **kwargs):
         if not kwargs.get('name'):
             kwargs['name'] = petname.Generate(2, ' ', letters=10).title()
@@ -259,7 +274,9 @@ class Fixtures(object):
         if not kwargs.get('organization'):
             kwargs['organization'] = kwargs['team'].organization
 
-        return Project.objects.create(**kwargs)
+        project = Project.objects.create(**kwargs)
+        project.add_team(kwargs['team'])
+        return project
 
     def create_project_key(self, project):
         return project.key_set.get_or_create()[0]

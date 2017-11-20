@@ -16,19 +16,19 @@ const DropdownLink = React.createClass({
     /** anchors menu to the right */
     anchorRight: PropTypes.bool,
     topLevelClasses: PropTypes.string,
-    menuClasses: PropTypes.string
+    menuClasses: PropTypes.string,
   },
 
   getDefaultProps() {
     return {
       disabled: false,
       anchorRight: false,
-      caret: true
+      caret: true,
     };
   },
   getInitialState() {
     return {
-      isOpen: false
+      isOpen: false,
     };
   },
 
@@ -37,7 +37,7 @@ const DropdownLink = React.createClass({
     jQuery(this.refs.dropdownToggle.parentNode)
       .on('shown.bs.dropdown', e => {
         this.setState({
-          isOpen: true
+          isOpen: true,
         });
         this.props.onOpen && this.props.onOpen(e);
       })
@@ -47,7 +47,7 @@ const DropdownLink = React.createClass({
             return;
           }
           this.setState({
-            isOpen: false
+            isOpen: false,
           });
           this.props.onClose && this.props.onClose(e);
         });
@@ -71,28 +71,30 @@ const DropdownLink = React.createClass({
     let className = classNames(this.props.className, {
       'dropdown-menu-right': isRight,
       'dropdown-toggle': true,
-      disabled
+      disabled,
     });
 
     let topLevelClasses = classNames(this.props.topLevelClasses, {
       'pull-right': isRight,
       'anchor-right': isRight,
       dropdown: true,
-      open: this.state.isOpen
+      open: this.state.isOpen,
     });
 
     return (
       <span className={topLevelClasses}>
         <a className={className} data-toggle="dropdown" ref="dropdownToggle">
-          {this.props.title}
-          {this.props.caret && <i className="icon-arrow-down" />}
+          <div className="dropdown-actor-title">
+            {this.props.title}
+            {this.props.caret && <i className="icon-arrow-down" />}
+          </div>
         </a>
         <ul className={classNames(this.props.menuClasses, 'dropdown-menu')}>
           {this.props.children}
         </ul>
       </span>
     );
-  }
+  },
 });
 
 export default DropdownLink;

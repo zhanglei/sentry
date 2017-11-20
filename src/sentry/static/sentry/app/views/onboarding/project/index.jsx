@@ -16,14 +16,14 @@ const OnboardingProject = React.createClass({
     name: PropTypes.string,
     team: PropTypes.string,
     setTeam: PropTypes.func,
-    teams: PropTypes.array
+    teams: PropTypes.array,
   },
 
   getDefaultProps() {
     return {
       team: '',
       setTeam: () => {},
-      teams: []
+      teams: [],
     };
   },
 
@@ -43,6 +43,7 @@ const OnboardingProject = React.createClass({
     this.setWarning(this.props.name);
     if (this.props.name) this.props.next();
   },
+
   renderTeamPicker() {
     let {team, teams, setTeam} = this.props;
     if (teams.length < 2) return null;
@@ -54,9 +55,12 @@ const OnboardingProject = React.createClass({
             value={team}
             style={{width: 180, padding: '10px'}}
             required={true}
-            onChange={e => setTeam(e[0].value)}>
+            onChange={e => setTeam(e[0].value)}
+          >
             {teams.map(({slug, name, id}, i) => (
-              <option key={id} value={slug}>{name}</option>
+              <option key={id} value={slug}>
+                {name}
+              </option>
             ))}
           </SelectInput>
         </div>
@@ -74,8 +78,9 @@ const OnboardingProject = React.createClass({
             <h4>{t('Give your project a name') + ':'}</h4>
             <div
               className={classnames('project-name-wrapper', {
-                required: this.state.projectRequired
-              })}>
+                required: this.state.projectRequired,
+              })}
+            >
               <PlatformiconTile platform={this.props.platform} />
               <input
                 type="text"
@@ -90,7 +95,7 @@ const OnboardingProject = React.createClass({
           </div>
           {this.renderTeamPicker()}
           <div>
-            <button className="btn btn-primary submit-new-team" onClick={this.submit}>
+            <button className="btn btn-primary new-project-submit" onClick={this.submit}>
               {t('Create Project')}
             </button>
           </div>
@@ -102,7 +107,7 @@ const OnboardingProject = React.createClass({
         </div>
       </div>
     );
-  }
+  },
 });
 
 export default OnboardingProject;

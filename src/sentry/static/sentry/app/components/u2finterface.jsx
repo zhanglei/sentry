@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import u2f from 'u2f-api';
+import Raven from 'raven-js';
 import ConfigStore from '../stores/configStore';
 
 import {t, tct} from '../locale';
@@ -10,12 +11,12 @@ const U2fInterface = React.createClass({
     challengeData: PropTypes.object.isRequired,
     flowMode: PropTypes.string.isRequired,
     onTap: PropTypes.func,
-    silentIfUnsupported: PropTypes.bool
+    silentIfUnsupported: PropTypes.bool,
   },
 
   getDefaultProps() {
     return {
-      silentIfUnsupported: false
+      silentIfUnsupported: false,
     };
   },
 
@@ -26,14 +27,14 @@ const U2fInterface = React.createClass({
       challengeElement: null,
       hasBeenTapped: false,
       deviceFailure: null,
-      responseElement: null
+      responseElement: null,
     };
   },
 
   componentDidMount() {
     u2f.isSupported().then(supported => {
       this.setState({
-        isSupported: supported
+        isSupported: supported,
       });
       if (!supported) {
         return;
@@ -46,7 +47,7 @@ const U2fInterface = React.createClass({
     this.setState(
       {
         hasBeenTapped: false,
-        deviceFailure: null
+        deviceFailure: null,
       },
       () => {
         this.invokeU2fFlow();
@@ -68,7 +69,7 @@ const U2fInterface = React.createClass({
       .then(data => {
         this.setState(
           {
-            hasBeenTapped: true
+            hasBeenTapped: true,
           },
           () => {
             this.state.responseElement.value = JSON.stringify(data);
@@ -80,18 +81,26 @@ const U2fInterface = React.createClass({
       })
       .catch(err => {
         let failure = 'DEVICE_ERROR';
-        if (err.metaData.type === 'DEVICE_INELIGIBLE') {
-          if (this.props.flowMode === 'enroll') {
-            failure = 'DUPLICATE_DEVICE';
-          } else {
-            failure = 'UNKNOWN_DEVICE';
+        // in some rare cases there is no metadata on the error which
+        // causes this to blow up badly.
+        if (err.metaData) {
+          if (err.metaData.type === 'DEVICE_INELIGIBLE') {
+            if (this.props.flowMode === 'enroll') {
+              failure = 'DUPLICATE_DEVICE';
+            } else {
+              failure = 'UNKNOWN_DEVICE';
+            }
+          } else if (err.metaData.type === 'BAD_REQUEST') {
+            failure = 'BAD_APPID';
           }
-        } else if (err.metaData.type === 'BAD_REQUEST') {
-          failure = 'BAD_APPID';
         }
+        // we want to know what is happening here.  There are some indicators
+        // that users are getting errors that should not happen through the
+        // regular u2f flow.
+        Raven.captureException(err);
         this.setState({
           deviceFailure: failure,
-          hasBeenTapped: false
+          hasBeenTapped: false,
         });
       });
   },
@@ -99,14 +108,14 @@ const U2fInterface = React.createClass({
   bindChallengeElement(ref) {
     this.setState({
       challengeElement: ref,
-      formElement: ref.form
+      formElement: ref.form,
     });
     ref.value = JSON.stringify(this.props.challengeData);
   },
 
   bindResponseElement(ref) {
     this.setState({
-      responseElement: ref
+      responseElement: ref,
     });
   },
 
@@ -138,13 +147,16 @@ const U2fInterface = React.createClass({
   renderFailure() {
     let {deviceFailure} = this.state;
     let supportMail = ConfigStore.get('supportEmail');
-    let support = supportMail
-      ? <a href={'mailto:' + supportMail}>{supportMail}</a>
-      : <span>{t('Support')}</span>;
+    let support = supportMail ? (
+      <a href={'mailto:' + supportMail}>{supportMail}</a>
+    ) : (
+      <span>{t('Support')}</span>
+    );
     return (
       <div className="failure-message">
         <p>
-          <strong>{t('Error: ')}</strong> {
+          <strong>{t('Error: ')}</strong>{' '}
+          {
             {
               DEVICE_ERROR: t('Your U2F device reported an error.'),
               DUPLICATE_DEVICE: t('This device is already in use.'),
@@ -158,16 +170,19 @@ const U2fInterface = React.createClass({
                 {
                   p1: <p />,
                   p2: <p />,
-                  support
+                  support,
                 }
-              )
+              ),
             }[deviceFailure]
           }
         </p>
-        {this.canTryAgain() &&
+        {this.canTryAgain() && (
           <p>
-            <a onClick={this.onTryAgain} className="btn btn-primary">{t('Try Again')}</a>
-          </p>}
+            <a onClick={this.onTryAgain} className="btn btn-primary">
+              {t('Try Again')}
+            </a>
+          </p>
+        )}
       </div>
     );
   },
@@ -185,9 +200,10 @@ const U2fInterface = React.createClass({
       <div
         className={
           'u2f-box' +
-            (this.state.hasBeenTapped ? ' tapped' : '') +
-            (this.state.deviceFailure ? ' device-failure' : '')
-        }>
+          (this.state.hasBeenTapped ? ' tapped' : '') +
+          (this.state.deviceFailure ? ' device-failure' : '')
+        }
+      >
         <div className="device-animation-frame">
           <div className="device-failed" />
           <div className="device-animation" />
@@ -199,9 +215,7 @@ const U2fInterface = React.createClass({
         </div>
         <input type="hidden" name="challenge" ref={this.bindChallengeElement} />
         <input type="hidden" name="response" ref={this.bindResponseElement} />
-        <div className="inner">
-          {this.renderBody()}
-        </div>
+        <div className="inner">{this.renderBody()}</div>
       </div>
     );
   },
@@ -217,7 +231,7 @@ const U2fInterface = React.createClass({
     } else {
       return this.renderPrompt();
     }
-  }
+  },
 });
 
 export default U2fInterface;

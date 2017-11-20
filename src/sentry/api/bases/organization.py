@@ -48,7 +48,7 @@ class OrganizationPermission(ScopedPermission):
 
             if auth.is_user_signed_request(request):
                 # if the user comes from a signed request
-                # we let him pass if sso is enabled
+                # we let them pass if sso is enabled
                 logger.info(
                     'access.signed-sso-passthrough',
                     extra={
@@ -89,6 +89,24 @@ class OrganizationIntegrationsPermission(OrganizationPermission):
         'POST': ['org:write', 'org:admin', 'org:integrations'],
         'PUT': ['org:write', 'org:admin', 'org:integrations'],
         'DELETE': ['org:admin', 'org:integrations'],
+    }
+
+
+class OrganizationAdminPermission(OrganizationPermission):
+    scope_map = {
+        'GET': ['org:admin'],
+        'POST': ['org:admin'],
+        'PUT': ['org:admin'],
+        'DELETE': ['org:admin'],
+    }
+
+
+class OrganizationAuthProviderPermission(OrganizationPermission):
+    scope_map = {
+        'GET': ['org:read'],
+        'POST': ['org:admin'],
+        'PUT': ['org:admin'],
+        'DELETE': ['org:admin'],
     }
 
 

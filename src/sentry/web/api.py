@@ -5,6 +5,8 @@ import logging
 import six
 import traceback
 
+from time import time
+
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
@@ -20,6 +22,7 @@ from raven.contrib.django.models import client as Raven
 from sentry import quotas, tsdb
 from sentry.coreapi import (
     APIError, APIForbidden, APIRateLimited, ClientApiHelper, CspApiHelper, LazyData,
+    MinidumpApiHelper,
 )
 from sentry.models import Project, OrganizationOption, Organization
 from sentry.signals import (
@@ -28,11 +31,13 @@ from sentry.quotas.base import RateLimit
 from sentry.utils import json, metrics
 from sentry.utils.data_filters import FILTER_STAT_KEYS_TO_VALUES
 from sentry.utils.data_scrubber import SensitiveDataFilter
+from sentry.utils.dates import to_datetime
 from sentry.utils.http import (
     is_valid_origin,
     get_origins,
     is_same_domain,
 )
+from sentry.utils.pubsub import QueuedPublisher, RedisPublisher
 from sentry.utils.safe import safe_execute
 from sentry.web.helpers import render_to_response
 
@@ -43,6 +48,10 @@ logger = logging.getLogger('sentry')
 PIXEL = base64.b64decode('R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=')
 
 PROTOCOL_VERSIONS = frozenset(('2.0', '3', '4', '5', '6', '7'))
+
+pubsub = QueuedPublisher(
+    RedisPublisher(getattr(settings, 'REQUESTS_PUBSUB_CONNECTION', None))
+) if getattr(settings, 'REQUESTS_PUBSUB_ENABLED', False) else None
 
 
 def api(func):
@@ -305,6 +314,9 @@ class StoreView(APIView):
             # bubble up as an APIError.
             data = None
 
+        if pubsub is not None and data is not None:
+            pubsub.publish('requests', data)
+
         response_or_event_id = self.process(request, data=data, **kwargs)
         if isinstance(response_or_event_id, HttpResponse):
             return response_or_event_id
@@ -337,6 +349,7 @@ class StoreView(APIView):
             content_encoding=request.META.get('HTTP_CONTENT_ENCODING', ''),
             helper=helper,
             project=project,
+            key=key,
             auth=auth,
             client_ip=remote_addr,
         )
@@ -346,7 +359,8 @@ class StoreView(APIView):
             project=project,
             sender=type(self),
         )
-
+        start_time = time()
+        tsdb_start_time = to_datetime(start_time)
         should_filter, filter_reason = helper.should_filter(
             project, data, ip_address=remote_addr)
         if should_filter:
@@ -361,13 +375,15 @@ class StoreView(APIView):
                 (tsdb.models.key_total_blacklisted, key.id),
             ]
             try:
-                increment_list.append((FILTER_STAT_KEYS_TO_VALUES[filter_reason], project.id))
+                increment_list.append(
+                    (FILTER_STAT_KEYS_TO_VALUES[filter_reason], project.id))
             # should error when filter_reason does not match a key in FILTER_STAT_KEYS_TO_VALUES
             except KeyError:
                 pass
 
             tsdb.incr_multi(
-                increment_list
+                increment_list,
+                timestamp=tsdb_start_time,
             )
 
             metrics.incr('events.blacklisted', tags={
@@ -402,7 +418,8 @@ class StoreView(APIView):
                      project.organization_id),
                     (tsdb.models.key_total_received, key.id),
                     (tsdb.models.key_total_rejected, key.id),
-                ]
+                ],
+                timestamp=tsdb_start_time,
             )
             metrics.incr(
                 'events.dropped',
@@ -425,7 +442,8 @@ class StoreView(APIView):
                     (tsdb.models.organization_total_received,
                      project.organization_id),
                     (tsdb.models.key_total_received, key.id),
-                ]
+                ],
+                timestamp=tsdb_start_time,
             )
 
         org_options = OrganizationOption.objects.get_all_values(
@@ -484,7 +502,7 @@ class StoreView(APIView):
             helper.ensure_does_not_have_ip(data)
 
         # mutates data (strips a lot of context if not queued)
-        helper.insert_data_to_database(data)
+        helper.insert_data_to_database(data, start_time=start_time)
 
         cache.set(cache_key, '', 60 * 5)
 
@@ -498,6 +516,66 @@ class StoreView(APIView):
         )
 
         return event_id
+
+
+class MinidumpView(StoreView):
+    helper_cls = MinidumpApiHelper
+    content_types = ('multipart/form-data', )
+
+    def _dispatch(self, request, helper, project_id=None, origin=None, *args, **kwargs):
+        # TODO(ja): Refactor shared code with CspReportView. Especially, look at
+        # the sentry_key override and test it.
+
+        # A minidump submission as implemented by Breakpad and Crashpad or any
+        # other library following the Mozilla Soccorro protocol is a POST request
+        # without Origin or Referer headers. Therefore, we cannot validate the
+        # origin of the request, but we *can* validate the "prod" key in future.
+        if request.method != 'POST':
+            return HttpResponseNotAllowed(['POST'])
+
+        content_type = request.META.get('CONTENT_TYPE')
+        # In case of multipart/form-data, the Content-Type header also includes
+        # a boundary. Therefore, we cannot check for an exact match.
+        if content_type is None or not content_type.startswith(self.content_types):
+            raise APIError('Invalid Content-Type')
+
+        request.user = AnonymousUser()
+
+        project = self._get_project_from_id(project_id)
+        helper.context.bind_project(project)
+        Raven.tags_context(helper.context.get_tags_context())
+
+        # This is yanking the auth from the querystring since it's not
+        # in the POST body. This means we expect a `sentry_key` and
+        # `sentry_version` to be set in querystring
+        auth = helper.auth_from_request(request)
+
+        key = helper.project_key_from_auth(auth)
+        if key.project_id != project.id:
+            raise APIError('Two different projects were specified')
+
+        helper.context.bind_auth(auth)
+        Raven.tags_context(helper.context.get_tags_context())
+
+        return super(APIView, self).dispatch(
+            request=request, project=project, auth=auth, helper=helper, key=key, **kwargs
+        )
+
+    def post(self, request, **kwargs):
+        try:
+            data = request.POST
+            data['upload_file_minidump'] = request.FILES['upload_file_minidump']
+        except KeyError:
+            raise APIError('Missing minidump upload')
+
+        response_or_event_id = self.process(request, data=data, **kwargs)
+        if isinstance(response_or_event_id, HttpResponse):
+            return response_or_event_id
+
+        return HttpResponse(
+            json.dumps({'id': response_or_event_id}),
+            content_type='application/json'
+        )
 
 
 class CspReportView(StoreView):

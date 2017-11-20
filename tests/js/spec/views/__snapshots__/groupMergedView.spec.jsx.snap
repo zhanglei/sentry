@@ -294,14 +294,18 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
               className="toolbar merged-toolbar"
             >
               <SpreadLayout
+                center={true}
                 responsive={true}
               >
                 <div
-                  className="spread-layout allow-responsive"
+                  className="spread-layout center allow-responsive"
                 >
-                  <SpreadLayout>
+                  <SpreadLayout
+                    center={true}
+                    responsive={false}
+                  >
                     <div
-                      className="spread-layout"
+                      className="spread-layout center"
                     >
                       <div
                         className="merged-toolbar-actions"
@@ -313,46 +317,30 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                           onConfirm={[Function]}
                           title="Unmerging 0 events"
                         >
-                          <a
-                            className="btn btn-sm btn-default disabled"
+                          <Confirm
+                            cancelText="Cancel"
+                            confirmText="Confirm"
                             disabled={true}
-                            onClick={[Function]}
-                            title="Unmerging 0 events"
+                            message="These events will be unmerged and grouped into a new issue. Are you sure you want to unmerge these events?"
+                            onConfirm={[Function]}
+                            priority="primary"
                           >
-                            Unmerge
-                             (
-                            0
-                            )
-                            <Modal
-                              animation={false}
-                              autoFocus={true}
-                              backdrop={true}
-                              bsClass="modal"
-                              dialogComponentClass={[Function]}
-                              enforceFocus={true}
-                              keyboard={true}
-                              manager={
-                                ModalManager {
-                                  "containers": Array [],
-                                  "data": Array [],
-                                  "handleContainerOverflow": true,
-                                  "hideSiblingNodes": true,
-                                  "modals": Array [],
-                                }
-                              }
-                              onHide={[Function]}
-                              renderBackdrop={[Function]}
-                              restoreFocus={true}
-                              show={false}
-                              title="Please confirm"
+                            <a
+                              className="btn btn-sm btn-default disabled"
+                              disabled={true}
+                              onClick={[Function]}
+                              title="Unmerging 0 events"
                             >
+                              Unmerge
+                               (
+                              0
+                              )
                               <Modal
+                                animation={false}
                                 autoFocus={true}
                                 backdrop={true}
-                                backdropClassName="modal-backdrop"
-                                backdropTransitionTimeout={150}
-                                containerClassName="modal-open"
-                                dialogTransitionTimeout={300}
+                                bsClass="modal"
+                                dialogComponentClass={[Function]}
                                 enforceFocus={true}
                                 keyboard={true}
                                 manager={
@@ -364,15 +352,39 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                                     "modals": Array [],
                                   }
                                 }
-                                onEntering={[Function]}
-                                onExited={[Function]}
                                 onHide={[Function]}
                                 renderBackdrop={[Function]}
                                 restoreFocus={true}
                                 show={false}
-                              />
-                            </Modal>
-                          </a>
+                              >
+                                <Modal
+                                  autoFocus={true}
+                                  backdrop={true}
+                                  backdropClassName="modal-backdrop"
+                                  backdropTransitionTimeout={150}
+                                  containerClassName="modal-open"
+                                  dialogTransitionTimeout={300}
+                                  enforceFocus={true}
+                                  keyboard={true}
+                                  manager={
+                                    ModalManager {
+                                      "containers": Array [],
+                                      "data": Array [],
+                                      "handleContainerOverflow": true,
+                                      "hideSiblingNodes": true,
+                                      "modals": Array [],
+                                    }
+                                  }
+                                  onEntering={[Function]}
+                                  onExited={[Function]}
+                                  onHide={[Function]}
+                                  renderBackdrop={[Function]}
+                                  restoreFocus={true}
+                                  show={false}
+                                />
+                              </Modal>
+                            </a>
+                          </Confirm>
                         </LinkWithConfirmation>
                         <Button
                           disabled={true}
@@ -395,15 +407,30 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                               }
                             }
                           >
-                            Compare
+                            <FlowLayout
+                              truncate={false}
+                            >
+                              <div
+                                className="flow-layout"
+                              >
+                                <span
+                                  className="button-label"
+                                >
+                                  Compare
+                                </span>
+                              </div>
+                            </FlowLayout>
                           </button>
                         </Button>
                       </div>
                     </div>
                   </SpreadLayout>
-                  <SpreadLayout>
+                  <SpreadLayout
+                    center={true}
+                    responsive={false}
+                  >
                     <div
-                      className="spread-layout"
+                      className="spread-layout center"
                     >
                       <div>
                         <Button
@@ -418,7 +445,19 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                             onClick={[Function]}
                             role="button"
                           >
-                            Collapse All
+                            <FlowLayout
+                              truncate={false}
+                            >
+                              <div
+                                className="flow-layout"
+                              >
+                                <span
+                                  className="button-label"
+                                >
+                                  Collapse All
+                                </span>
+                              </div>
+                            </FlowLayout>
                           </button>
                         </Button>
                       </div>
@@ -541,11 +580,12 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
               className="merged-group expanded"
             >
               <SpreadLayout
+                center={true}
                 className="merged-controls"
                 responsive={true}
               >
                 <div
-                  className="spread-layout merged-controls allow-responsive"
+                  className="spread-layout merged-controls center allow-responsive"
                 >
                   <FlowLayout
                     onClick={[Function]}
@@ -598,11 +638,12 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                 className="merged-events-list event-list"
               >
                 <SpreadLayout
+                  center={true}
                   className="event-details"
                   responsive={true}
                 >
                   <div
-                    className="spread-layout event-details allow-responsive"
+                    className="spread-layout event-details center allow-responsive"
                   >
                     <FlowLayout
                       truncate={true}
@@ -851,44 +892,6 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                             </div>
                           </div>
                         </EventOrGroupHeader>
-                      </div>
-                    </FlowLayout>
-                    <FlowLayout
-                      style={
-                        Object {
-                          "alignItems": "flex-end",
-                        }
-                      }
-                      truncate={true}
-                      vertical={true}
-                    >
-                      <div
-                        className="flow-layout is-truncated"
-                        style={
-                          Object {
-                            "alignItems": "flex-end",
-                          }
-                        }
-                        vertical={true}
-                      >
-                        <span
-                          className="fingerprint-header"
-                        >
-                          Other Fingerprints
-                        </span>
-                        <FlowLayout
-                          truncate={true}
-                        >
-                          <div
-                            className="flow-layout is-truncated"
-                          >
-                            <span
-                              className="fingerprint"
-                            >
-                              e05da55328a860b21f62e371f0a7507d
-                            </span>
-                          </div>
-                        </FlowLayout>
                       </div>
                     </FlowLayout>
                   </div>
@@ -1005,11 +1008,12 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
               className="merged-group expanded"
             >
               <SpreadLayout
+                center={true}
                 className="merged-controls"
                 responsive={true}
               >
                 <div
-                  className="spread-layout merged-controls allow-responsive"
+                  className="spread-layout merged-controls center allow-responsive"
                 >
                   <FlowLayout
                     onClick={[Function]}
@@ -1062,11 +1066,12 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                 className="merged-events-list event-list"
               >
                 <SpreadLayout
+                  center={true}
                   className="event-details"
                   responsive={true}
                 >
                   <div
-                    className="spread-layout event-details allow-responsive"
+                    className="spread-layout event-details center allow-responsive"
                   >
                     <FlowLayout
                       truncate={true}
@@ -1315,44 +1320,6 @@ exports[`Issues -> Merged View renders with mocked data 1`] = `
                             </div>
                           </div>
                         </EventOrGroupHeader>
-                      </div>
-                    </FlowLayout>
-                    <FlowLayout
-                      style={
-                        Object {
-                          "alignItems": "flex-end",
-                        }
-                      }
-                      truncate={true}
-                      vertical={true}
-                    >
-                      <div
-                        className="flow-layout is-truncated"
-                        style={
-                          Object {
-                            "alignItems": "flex-end",
-                          }
-                        }
-                        vertical={true}
-                      >
-                        <span
-                          className="fingerprint-header"
-                        >
-                          Other Fingerprints
-                        </span>
-                        <FlowLayout
-                          truncate={true}
-                        >
-                          <div
-                            className="flow-layout is-truncated"
-                          >
-                            <span
-                              className="fingerprint"
-                            >
-                              2c4887696f708c476a81ce4e834c4b02
-                            </span>
-                          </div>
-                        </FlowLayout>
                       </div>
                     </FlowLayout>
                   </div>
@@ -1648,14 +1615,18 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
               className="toolbar merged-toolbar"
             >
               <SpreadLayout
+                center={true}
                 responsive={true}
               >
                 <div
-                  className="spread-layout allow-responsive"
+                  className="spread-layout center allow-responsive"
                 >
-                  <SpreadLayout>
+                  <SpreadLayout
+                    center={true}
+                    responsive={false}
+                  >
                     <div
-                      className="spread-layout"
+                      className="spread-layout center"
                     >
                       <div
                         className="merged-toolbar-actions"
@@ -1667,46 +1638,30 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                           onConfirm={[Function]}
                           title="Unmerging 0 events"
                         >
-                          <a
-                            className="btn btn-sm btn-default disabled"
+                          <Confirm
+                            cancelText="Cancel"
+                            confirmText="Confirm"
                             disabled={true}
-                            onClick={[Function]}
-                            title="Unmerging 0 events"
+                            message="These events will be unmerged and grouped into a new issue. Are you sure you want to unmerge these events?"
+                            onConfirm={[Function]}
+                            priority="primary"
                           >
-                            Unmerge
-                             (
-                            0
-                            )
-                            <Modal
-                              animation={false}
-                              autoFocus={true}
-                              backdrop={true}
-                              bsClass="modal"
-                              dialogComponentClass={[Function]}
-                              enforceFocus={true}
-                              keyboard={true}
-                              manager={
-                                ModalManager {
-                                  "containers": Array [],
-                                  "data": Array [],
-                                  "handleContainerOverflow": true,
-                                  "hideSiblingNodes": true,
-                                  "modals": Array [],
-                                }
-                              }
-                              onHide={[Function]}
-                              renderBackdrop={[Function]}
-                              restoreFocus={true}
-                              show={false}
-                              title="Please confirm"
+                            <a
+                              className="btn btn-sm btn-default disabled"
+                              disabled={true}
+                              onClick={[Function]}
+                              title="Unmerging 0 events"
                             >
+                              Unmerge
+                               (
+                              0
+                              )
                               <Modal
+                                animation={false}
                                 autoFocus={true}
                                 backdrop={true}
-                                backdropClassName="modal-backdrop"
-                                backdropTransitionTimeout={150}
-                                containerClassName="modal-open"
-                                dialogTransitionTimeout={300}
+                                bsClass="modal"
+                                dialogComponentClass={[Function]}
                                 enforceFocus={true}
                                 keyboard={true}
                                 manager={
@@ -1718,15 +1673,39 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                                     "modals": Array [],
                                   }
                                 }
-                                onEntering={[Function]}
-                                onExited={[Function]}
                                 onHide={[Function]}
                                 renderBackdrop={[Function]}
                                 restoreFocus={true}
                                 show={false}
-                              />
-                            </Modal>
-                          </a>
+                              >
+                                <Modal
+                                  autoFocus={true}
+                                  backdrop={true}
+                                  backdropClassName="modal-backdrop"
+                                  backdropTransitionTimeout={150}
+                                  containerClassName="modal-open"
+                                  dialogTransitionTimeout={300}
+                                  enforceFocus={true}
+                                  keyboard={true}
+                                  manager={
+                                    ModalManager {
+                                      "containers": Array [],
+                                      "data": Array [],
+                                      "handleContainerOverflow": true,
+                                      "hideSiblingNodes": true,
+                                      "modals": Array [],
+                                    }
+                                  }
+                                  onEntering={[Function]}
+                                  onExited={[Function]}
+                                  onHide={[Function]}
+                                  renderBackdrop={[Function]}
+                                  restoreFocus={true}
+                                  show={false}
+                                />
+                              </Modal>
+                            </a>
+                          </Confirm>
                         </LinkWithConfirmation>
                         <Button
                           disabled={true}
@@ -1749,15 +1728,30 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                               }
                             }
                           >
-                            Compare
+                            <FlowLayout
+                              truncate={false}
+                            >
+                              <div
+                                className="flow-layout"
+                              >
+                                <span
+                                  className="button-label"
+                                >
+                                  Compare
+                                </span>
+                              </div>
+                            </FlowLayout>
                           </button>
                         </Button>
                       </div>
                     </div>
                   </SpreadLayout>
-                  <SpreadLayout>
+                  <SpreadLayout
+                    center={true}
+                    responsive={false}
+                  >
                     <div
-                      className="spread-layout"
+                      className="spread-layout center"
                     >
                       <div>
                         <Button
@@ -1772,7 +1766,19 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                             onClick={[Function]}
                             role="button"
                           >
-                            Collapse All
+                            <FlowLayout
+                              truncate={false}
+                            >
+                              <div
+                                className="flow-layout"
+                              >
+                                <span
+                                  className="button-label"
+                                >
+                                  Collapse All
+                                </span>
+                              </div>
+                            </FlowLayout>
                           </button>
                         </Button>
                       </div>
@@ -1895,11 +1901,12 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
               className="merged-group expanded"
             >
               <SpreadLayout
+                center={true}
                 className="merged-controls"
                 responsive={true}
               >
                 <div
-                  className="spread-layout merged-controls allow-responsive"
+                  className="spread-layout merged-controls center allow-responsive"
                 >
                   <FlowLayout
                     onClick={[Function]}
@@ -1952,11 +1959,12 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                 className="merged-events-list event-list"
               >
                 <SpreadLayout
+                  center={true}
                   className="event-details"
                   responsive={true}
                 >
                   <div
-                    className="spread-layout event-details allow-responsive"
+                    className="spread-layout event-details center allow-responsive"
                   >
                     <FlowLayout
                       truncate={true}
@@ -2205,44 +2213,6 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                             </div>
                           </div>
                         </EventOrGroupHeader>
-                      </div>
-                    </FlowLayout>
-                    <FlowLayout
-                      style={
-                        Object {
-                          "alignItems": "flex-end",
-                        }
-                      }
-                      truncate={true}
-                      vertical={true}
-                    >
-                      <div
-                        className="flow-layout is-truncated"
-                        style={
-                          Object {
-                            "alignItems": "flex-end",
-                          }
-                        }
-                        vertical={true}
-                      >
-                        <span
-                          className="fingerprint-header"
-                        >
-                          Other Fingerprints
-                        </span>
-                        <FlowLayout
-                          truncate={true}
-                        >
-                          <div
-                            className="flow-layout is-truncated"
-                          >
-                            <span
-                              className="fingerprint"
-                            >
-                              e05da55328a860b21f62e371f0a7507d
-                            </span>
-                          </div>
-                        </FlowLayout>
                       </div>
                     </FlowLayout>
                   </div>
@@ -2359,11 +2329,12 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
               className="merged-group expanded"
             >
               <SpreadLayout
+                center={true}
                 className="merged-controls"
                 responsive={true}
               >
                 <div
-                  className="spread-layout merged-controls allow-responsive"
+                  className="spread-layout merged-controls center allow-responsive"
                 >
                   <FlowLayout
                     onClick={[Function]}
@@ -2416,11 +2387,12 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                 className="merged-events-list event-list"
               >
                 <SpreadLayout
+                  center={true}
                   className="event-details"
                   responsive={true}
                 >
                   <div
-                    className="spread-layout event-details allow-responsive"
+                    className="spread-layout event-details center allow-responsive"
                   >
                     <FlowLayout
                       truncate={true}
@@ -2669,44 +2641,6 @@ exports[`Issues -> Merged View renders with mocked data 2`] = `
                             </div>
                           </div>
                         </EventOrGroupHeader>
-                      </div>
-                    </FlowLayout>
-                    <FlowLayout
-                      style={
-                        Object {
-                          "alignItems": "flex-end",
-                        }
-                      }
-                      truncate={true}
-                      vertical={true}
-                    >
-                      <div
-                        className="flow-layout is-truncated"
-                        style={
-                          Object {
-                            "alignItems": "flex-end",
-                          }
-                        }
-                        vertical={true}
-                      >
-                        <span
-                          className="fingerprint-header"
-                        >
-                          Other Fingerprints
-                        </span>
-                        <FlowLayout
-                          truncate={true}
-                        >
-                          <div
-                            className="flow-layout is-truncated"
-                          >
-                            <span
-                              className="fingerprint"
-                            >
-                              2c4887696f708c476a81ce4e834c4b02
-                            </span>
-                          </div>
-                        </FlowLayout>
                       </div>
                     </FlowLayout>
                   </div>

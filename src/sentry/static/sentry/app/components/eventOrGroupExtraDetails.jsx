@@ -15,11 +15,15 @@ const EventOrGroupExtraDetails = React.createClass({
     lastSeen: PropTypes.string,
     shortId: PropTypes.string,
     subscriptionDetails: PropTypes.shape({
-      reason: PropTypes.string
+      reason: PropTypes.string,
     }),
     numComments: PropTypes.number,
     logger: PropTypes.string,
-    annotations: PropTypes.arrayOf(PropTypes.string)
+    annotations: PropTypes.arrayOf(PropTypes.string),
+    assignedTo: PropTypes.shape({
+      name: PropTypes.string,
+    }),
+    showAssignee: PropTypes.bool,
   },
 
   mixins: [ProjectState],
@@ -35,7 +39,9 @@ const EventOrGroupExtraDetails = React.createClass({
       subscriptionDetails,
       numComments,
       logger,
-      annotations
+      assignedTo,
+      annotations,
+      showAssignee,
     } = this.props;
     let styles = {};
     if (subscriptionDetails && subscriptionDetails.reason === 'mentioned') {
@@ -45,54 +51,59 @@ const EventOrGroupExtraDetails = React.createClass({
     return (
       <div className="event-extra">
         <ul>
-          {shortId &&
+          {shortId && (
             <li>
               <ShortId shortId={shortId} />
-            </li>}
+            </li>
+          )}
           <li>
             <span className="icon icon-clock" />
             {lastSeen && <TimeSince date={lastSeen} />}
             {firstSeen && lastSeen && <span>&nbsp;—&nbsp;</span>}
             {firstSeen && <TimeSince date={firstSeen} suffix="old" />}
           </li>
-          {numComments > 0 &&
+          {numComments > 0 && (
             <li>
               <Link
                 to={`/${orgId}/${projectId}/issues/${groupId}/activity/`}
-                className="comments">
+                className="comments"
+              >
                 <span className="icon icon-comments" style={styles} />
-                <span className="tag-count">
-                  {numComments}
-                </span>
+                <span className="tag-count">{numComments}</span>
               </Link>
-            </li>}
-          {logger &&
+            </li>
+          )}
+          {logger && (
             <li className="event-annotation">
               <Link
                 to={{
                   pathname: `/${orgId}/${projectId}/`,
                   query: {
-                    query: 'logger:' + logger
-                  }
-                }}>
+                    query: 'logger:' + logger,
+                  },
+                }}
+              >
                 {logger}
               </Link>
-            </li>}
+            </li>
+          )}
           {annotations &&
             annotations.map((annotation, key) => {
               return (
                 <li
                   className="event-annotation"
                   dangerouslySetInnerHTML={{
-                    __html: annotation
+                    __html: annotation,
                   }}
                   key={key}
                 />
               );
             })}
+
+          {showAssignee && assignedTo && <li>Assigned to {assignedTo.name}</li>}
         </ul>
       </div>
     );
-  }
+  },
 });
 export default EventOrGroupExtraDetails;

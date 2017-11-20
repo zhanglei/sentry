@@ -5,6 +5,8 @@ import LazyLoad from 'react-lazy-load';
 
 import ApiMixin from '../../mixins/apiMixin';
 import {update as projectUpdate} from '../../actionCreators/projects';
+import {leaveTeam} from '../../actionCreators/teams';
+import IndicatorStore from '../../stores/indicatorStore';
 import BarChart from '../../components/barChart';
 import ProjectLabel from '../../components/projectLabel';
 import SentryTypes from '../../proptypes';
@@ -18,7 +20,7 @@ const ExpandedTeamList = React.createClass({
     organization: SentryTypes.Organization.isRequired,
     teamList: PropTypes.arrayOf(SentryTypes.Team).isRequired,
     projectStats: PropTypes.object,
-    hasTeams: PropTypes.bool
+    hasTeams: PropTypes.bool,
   },
 
   mixins: [
@@ -30,17 +32,28 @@ const ExpandedTeamList = React.createClass({
           return this.getAttribute('data-isbookmarked') === 'true'
             ? 'Remove from bookmarks'
             : 'Add to bookmarks';
-        }
+        },
       };
-    })
+    }),
   ],
 
   leaveTeam(team) {
     // TODO(dcramer): handle loading indicator
-    this.api.leaveTeam({
-      orgId: this.props.organization.slug,
-      teamId: team.slug
-    });
+    leaveTeam(
+      this.api,
+      {
+        orgId: this.props.organization.slug,
+        teamId: team.slug,
+      },
+      {
+        error: () => {
+          IndicatorStore.add(
+            t('There was an error while trying to leave the team.'),
+            'error'
+          );
+        },
+      }
+    );
   },
 
   urlPrefix() {
@@ -67,7 +80,9 @@ const ExpandedTeamList = React.createClass({
               {tct(
                 'There are no projects in this team. Get started by [link:creating your first project].',
                 {
-                  link: <a href={this.urlPrefix() + '/projects/new/?team=' + team.slug} />
+                  link: (
+                    <a href={this.urlPrefix() + '/projects/new/?team=' + team.slug} />
+                  ),
                 }
               )}
             </p>
@@ -88,12 +103,14 @@ const ExpandedTeamList = React.createClass({
             <a className="leave-team" onClick={this.leaveTeam.bind(this, team)}>
               {t('Leave Team')}
             </a>
-            {access.has('team:write') &&
+            {access.has('team:write') && (
               <Link
                 className="team-settings"
-                to={`/organizations/${orgId}/teams/${team.slug}/settings/`}>
+                to={`/organizations/${orgId}/teams/${team.slug}/settings/`}
+              >
                 {t('Team Settings')}
-              </Link>}
+              </Link>
+            )}
           </div>
           <h3>{team.name}</h3>
         </div>
@@ -113,8 +130,8 @@ const ExpandedTeamList = React.createClass({
       orgId: this.props.organization.slug,
       projectId: project.slug,
       data: {
-        isBookmarked: !project.isBookmarked
-      }
+        isBookmarked: !project.isBookmarked,
+      },
     });
   },
 
@@ -133,10 +150,13 @@ const ExpandedTeamList = React.createClass({
             <a
               onClick={this.toggleBookmark.bind(this, project)}
               className="tip"
-              data-isbookmarked={project.isBookmarked}>
-              {project.isBookmarked
-                ? <span className="icon-star-solid bookmark" />
-                : <span className="icon-star-outline bookmark" />}
+              data-isbookmarked={project.isBookmarked}
+            >
+              {project.isBookmarked ? (
+                <span className="icon-star-solid bookmark" />
+              ) : (
+                <span className="icon-star-outline bookmark" />
+              )}
             </a>
             <Link to={`/${org.slug}/${project.slug}/`}>
               <ProjectLabel project={project} organization={this.props.organization} />
@@ -144,8 +164,11 @@ const ExpandedTeamList = React.createClass({
           </h5>
         </td>
         <td className="align-right project-chart">
-          {chartData &&
-            <LazyLoad><BarChart points={chartData} label="events" /></LazyLoad>}
+          {chartData && (
+            <LazyLoad>
+              <BarChart points={chartData} label="events" />
+            </LazyLoad>
+          )}
         </td>
       </tr>
     );
@@ -164,7 +187,7 @@ const ExpandedTeamList = React.createClass({
                       to={`/organizations/${this.props.organization.slug}/all-teams/`}
                     />
                   ),
-                  createLink: <Link to={this.urlPrefix() + '/teams/new/'} />
+                  createLink: <Link to={this.urlPrefix() + '/teams/new/'} />,
                 }
               )
             : tct('You are not a member of any teams. [joinLink:Join a team].', {
@@ -172,7 +195,7 @@ const ExpandedTeamList = React.createClass({
                   <Link
                     to={`/organizations/${this.props.organization.slug}/all-teams/`}
                   />
-                )
+                ),
               })}
         </p>
       );
@@ -182,7 +205,7 @@ const ExpandedTeamList = React.createClass({
         {tct(
           'You dont have any teams for this organization yet. Get started by [link:creating your first team].',
           {
-            link: <Link to={this.urlPrefix() + '/teams/new/'} />
+            link: <Link to={this.urlPrefix() + '/teams/new/'} />,
           }
         )}
       </p>
@@ -198,12 +221,8 @@ const ExpandedTeamList = React.createClass({
   render() {
     let hasTeams = this.props.teamList.length > 0;
 
-    return (
-      <div>
-        {hasTeams ? this.renderTeamNodes() : this.renderEmpty()}
-      </div>
-    );
-  }
+    return <div>{hasTeams ? this.renderTeamNodes() : this.renderEmpty()}</div>;
+  },
 });
 
 export default ExpandedTeamList;

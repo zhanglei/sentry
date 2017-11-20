@@ -171,7 +171,7 @@ def create_sample_time_series(event, release=None):
 
     environment = Environment.get_or_create(
         project=project,
-        name=event.get_tag('environment') or ''
+        name=Environment.get_name_or_default(event.get_tag('environment')),
     )
 
     if release:
@@ -351,6 +351,7 @@ def main(num_events=1, extra_events=False):
                     'flags': Project.flags.has_releases,
                 }
             )
+            project.add_team(team)
             if not project.first_event:
                 project.update(
                     first_event=project.date_added,

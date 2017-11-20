@@ -11,25 +11,21 @@ const StacktraceContent = React.createClass({
     includeSystemFrames: PropTypes.bool,
     expandFirstFrame: PropTypes.bool,
     platform: PropTypes.string,
-    newestFirst: PropTypes.bool
+    newestFirst: PropTypes.bool,
   },
   mixins: [OrganizationState],
 
   getDefaultProps() {
     return {
       includeSystemFrames: true,
-      expandFirstFrame: true
+      expandFirstFrame: true,
     };
-  },
-
-  shouldRenderAsTable() {
-    return this.props.platform === 'cocoa';
   },
 
   renderOmittedFrames(firstFrameOmitted, lastFrameOmitted) {
     let props = {
       className: 'frame frames-omitted',
-      key: 'omitted'
+      key: 'omitted',
     };
     let text = t(
       'Frames %d until %d were omitted and not available.',
@@ -74,6 +70,9 @@ const StacktraceContent = React.createClass({
       let repeatedFrame =
         nextFrame &&
         frame.lineNo === nextFrame.lineNo &&
+        frame.instructionAddr === nextFrame.instructionAddr &&
+        frame.package === nextFrame.package &&
+        frame.module === nextFrame.module &&
         frame.function === nextFrame.function;
 
       if (repeatedFrame) {
@@ -121,7 +120,7 @@ const StacktraceContent = React.createClass({
         <ul>{frames}</ul>
       </div>
     );
-  }
+  },
 });
 
 export default StacktraceContent;

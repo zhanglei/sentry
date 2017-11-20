@@ -37,6 +37,13 @@ class EventManagerTest(TransactionTestCase):
         result.update(kwargs)
         return result
 
+    def test_key_id_remains_in_data(self):
+        manager = EventManager(self.make_event(key_id=12345))
+        manager.normalize()
+        assert manager.data['key_id'] == 12345
+        event = manager.save(1)
+        assert event.data['key_id'] == 12345
+
     def test_similar_message_prefix_doesnt_group(self):
         # we had a regression which caused the default hash to just be
         # 'event.message' instead of '[event.message]' which caused it to
@@ -50,6 +57,17 @@ class EventManagerTest(TransactionTestCase):
         event2 = manager.save(1)
 
         assert event1.group_id != event2.group_id
+
+    def test_transaction_over_culprit(self):
+        manager = EventManager(self.make_event(
+            culprit='foo',
+            transaction='bar'
+        ))
+        manager.normalize()
+        event1 = manager.save(1)
+
+        assert event1.transaction == 'bar'
+        assert event1.culprit == 'bar'
 
     @patch('sentry.signals.regression_signal.send')
     def test_broken_regression_signal(self, send):
@@ -66,11 +84,35 @@ class EventManagerTest(TransactionTestCase):
         should_sample.return_value = True
         event_id = 'a' * 32
 
-        manager = EventManager(self.make_event())
+        manager = EventManager(self.make_event(event_id=event_id))
         event = manager.save(1)
 
+        # This is a brand new event, so it is actually saved.
+        # In this case, we don't need an EventMapping, but we
+        # do need the Event.
+        assert not EventMapping.objects.filter(
+            group_id=event.group_id,
+            event_id=event_id,
+        ).exists()
+
+        assert Event.objects.filter(
+            event_id=event_id,
+        ).exists()
+
+        event_id = 'b' * 32
+
+        manager = EventManager(self.make_event(event_id=event_id))
+        event = manager.save(1)
+
+        # This second is a dupe, so should be sampled
+        # For a sample, we want to store the EventMapping,
+        # but don't need to store the Event
         assert EventMapping.objects.filter(
             group_id=event.group_id,
+            event_id=event_id,
+        ).exists()
+
+        assert not Event.objects.filter(
             event_id=event_id,
         ).exists()
 
@@ -84,7 +126,7 @@ class EventManagerTest(TransactionTestCase):
         assert event.id
 
         manager = EventManager(self.make_event())
-        with self.feature('projects:sample-events', False):
+        with self.feature({'projects:sample-events': False}):
             event = manager.save(1)
         assert not event.id
 
@@ -460,6 +502,13 @@ class EventManagerTest(TransactionTestCase):
         ))
         data = manager.normalize()
         assert len(data['culprit']) == MAX_CULPRIT_LENGTH
+
+    def test_long_transaction(self):
+        manager = EventManager(self.make_event(
+            transaction='x' * (MAX_CULPRIT_LENGTH + 1),
+        ))
+        data = manager.normalize()
+        assert len(data['transaction']) == MAX_CULPRIT_LENGTH
 
     def test_long_message(self):
         manager = EventManager(

@@ -10,10 +10,24 @@ import PasswordField from './passwordField';
 import RangeField from './rangeField';
 import Select2FieldAutocomplete from './select2FieldAutocomplete';
 import Select2Field from './select2Field';
+import Select2TextField from './select2TextField';
 import TextField from './textField';
 import TextareaField from './textareaField';
 
-class GenericField extends React.Component {
+export default class GenericField extends React.Component {
+  static propTypes = {
+    config: PropTypes.object.isRequired,
+    formData: PropTypes.object,
+    formErrors: PropTypes.object,
+    formState: PropTypes.string.isRequired,
+    onChange: PropTypes.func,
+  };
+
+  static defaultProps = {
+    formData: {},
+    formErrors: {},
+  };
+
   render() {
     let config = this.props.config;
     let required = defined(config.required) ? config.required : true;
@@ -28,9 +42,10 @@ class GenericField extends React.Component {
       disabled: config.readonly,
       key: config.name,
       formState: this.props.formState,
-      help: defined(config.help) && config.help !== ''
-        ? <span dangerouslySetInnerHTML={{__html: config.help}} />
-        : null
+      help:
+        defined(config.help) && config.help !== '' ? (
+          <span dangerouslySetInnerHTML={{__html: config.help}} />
+        ) : null,
     });
 
     switch (config.type) {
@@ -45,6 +60,7 @@ class GenericField extends React.Component {
       case 'string':
       case 'text':
       case 'url':
+        if (props.choices) return <Select2TextField {...props} />;
         return <TextField {...props} />;
       case 'number':
         return <NumberField {...props} />;
@@ -65,13 +81,3 @@ class GenericField extends React.Component {
     }
   }
 }
-
-GenericField.propTypes = {
-  config: PropTypes.object.isRequired,
-  formData: PropTypes.object,
-  formErrors: PropTypes.object,
-  formState: PropTypes.string.isRequired,
-  onChange: PropTypes.func
-};
-
-export default GenericField;

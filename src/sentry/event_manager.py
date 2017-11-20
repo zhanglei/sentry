@@ -20,7 +20,7 @@ from django.utils.encoding import force_bytes, force_text
 from hashlib import md5
 from uuid import uuid4
 
-from sentry import eventtypes, features, buffer
+from sentry import eventtypes, features, buffer, tagstore
 # we need a bunch of unexposed functions from tsdb
 from sentry.tsdb import backend as tsdb
 from sentry.constants import (
@@ -29,19 +29,23 @@ from sentry.constants import (
 from sentry.interfaces.base import get_interface
 from sentry.models import (
     Activity, Environment, Event, EventMapping, EventUser, Group, GroupHash, GroupRelease,
-    GroupResolution, GroupStatus, Project, Release, ReleaseEnvironment, ReleaseProject, TagKey,
+    GroupResolution, GroupStatus, Project, Release, ReleaseEnvironment, ReleaseProject,
     UserReport
 )
 from sentry.plugins import plugins
 from sentry.signals import first_event_received, regression_signal
 from sentry.tasks.merge import merge_group
 from sentry.tasks.post_process import post_process_group
+from sentry.utils import metrics
 from sentry.utils.cache import default_cache
 from sentry.utils.db import get_db_engine
 from sentry.utils.safe import safe_execute, trim, trim_dict
 from sentry.utils.strings import truncatechars
 from sentry.utils.validators import validate_ip
 from sentry.stacktraces import normalize_in_app
+
+
+DEFAULT_FINGERPRINT_VALUES = frozenset(['{{ default }}', '{{default}}'])
 
 
 def count_limit(count):
@@ -87,7 +91,8 @@ def get_hashes_for_event_with_reason(event):
         if not result:
             continue
         return (interface.get_path(), result)
-    return ('message', [event.message])
+
+    return ('no_interfaces', [''])
 
 
 def get_grouping_behavior(event):
@@ -99,8 +104,7 @@ def get_grouping_behavior(event):
 
 
 def get_hashes_from_fingerprint(event, fingerprint):
-    default_values = set(['{{ default }}', '{{default}}'])
-    if any(d in fingerprint for d in default_values):
+    if any(d in fingerprint for d in DEFAULT_FINGERPRINT_VALUES):
         default_hashes = get_hashes_for_event(event)
         hash_count = len(default_hashes)
     else:
@@ -110,7 +114,7 @@ def get_hashes_from_fingerprint(event, fingerprint):
     for idx in range(hash_count):
         result = []
         for bit in fingerprint:
-            if bit in default_values:
+            if bit in DEFAULT_FINGERPRINT_VALUES:
                 result.extend(default_hashes[idx])
             else:
                 result.append(bit)
@@ -119,8 +123,7 @@ def get_hashes_from_fingerprint(event, fingerprint):
 
 
 def get_hashes_from_fingerprint_with_reason(event, fingerprint):
-    default_values = set(['{{ default }}', '{{default}}'])
-    if any(d in fingerprint for d in default_values):
+    if any(d in fingerprint for d in DEFAULT_FINGERPRINT_VALUES):
         default_hashes = get_hashes_for_event_with_reason(event)
         hash_count = len(default_hashes[1])
     else:
@@ -129,7 +132,7 @@ def get_hashes_from_fingerprint_with_reason(event, fingerprint):
     hashes = OrderedDict((bit, []) for bit in fingerprint)
     for idx in range(hash_count):
         for bit in fingerprint:
-            if bit in default_values:
+            if bit in DEFAULT_FINGERPRINT_VALUES:
                 hashes[bit].append(default_hashes)
             else:
                 hashes[bit] = bit
@@ -249,7 +252,7 @@ class EventManager(object):
             data['logger'] = DEFAULT_LOGGER_NAME
         else:
             logger = trim(data['logger'].strip(), 64)
-            if TagKey.is_valid_key(logger):
+            if tagstore.is_valid_key(logger):
                 data['logger'] = logger
             else:
                 data['logger'] = DEFAULT_LOGGER_NAME
@@ -279,6 +282,7 @@ class EventManager(object):
             data['event_id'] = uuid4().hex
 
         data.setdefault('culprit', None)
+        data.setdefault('transaction', None)
         data.setdefault('server_name', None)
         data.setdefault('site', None)
         data.setdefault('checksum', None)
@@ -398,6 +402,9 @@ class EventManager(object):
         if data['culprit']:
             data['culprit'] = trim(data['culprit'], MAX_CULPRIT_LENGTH)
 
+        if data['transaction']:
+            data['transaction'] = trim(data['transaction'], MAX_CULPRIT_LENGTH)
+
         return data
 
     def save(self, project, raw=False):
@@ -411,7 +418,9 @@ class EventManager(object):
         event_id = data.pop('event_id')
         level = data.pop('level')
 
-        culprit = data.pop('culprit', None)
+        culprit = data.pop('transaction', None)
+        if not culprit:
+            culprit = data.pop('culprit', None)
         logger_name = data.pop('logger', None)
         server_name = data.pop('server_name', None)
         site = data.pop('site', None)
@@ -449,6 +458,7 @@ class EventManager(object):
             datetime=date,
             **kwargs
         )
+        event._project_cache = project
 
         # convert this to a dict to ensure we're only storing one value per key
         # as most parts of Sentry dont currently play well with multiple values
@@ -598,10 +608,34 @@ class EventManager(object):
         # store a reference to the group id to guarantee validation of isolation
         event.data.bind_ref(event)
 
-        try:
-            with transaction.atomic(using=router.db_for_write(EventMapping)):
-                EventMapping.objects.create(project=project, group=group, event_id=event_id)
-        except IntegrityError:
+        # When an event was sampled, the canonical source of truth
+        # is the EventMapping table since we aren't going to be writing out an actual
+        # Event row. Otherwise, if the Event isn't being sampled, we can safely
+        # rely on the Event table itself as the source of truth and ignore
+        # EventMapping since it's redundant information.
+        if is_sample:
+            try:
+                with transaction.atomic(using=router.db_for_write(EventMapping)):
+                    EventMapping.objects.create(project=project, group=group, event_id=event_id)
+            except IntegrityError:
+                self.logger.info(
+                    'duplicate.found',
+                    exc_info=True,
+                    extra={
+                        'event_uuid': event_id,
+                        'project_id': project.id,
+                        'group_id': group.id,
+                        'model': EventMapping.__name__,
+                    }
+                )
+                return event
+
+        # We now always need to check the Event table for dupes
+        # since EventMapping isn't exactly the canonical source of truth.
+        if Event.objects.filter(
+            project_id=project.id,
+            event_id=event_id,
+        ).exists():
             self.logger.info(
                 'duplicate.found',
                 exc_info=True,
@@ -609,7 +643,7 @@ class EventManager(object):
                     'event_uuid': event_id,
                     'project_id': project.id,
                     'group_id': group.id,
-                    'model': EventMapping.__name__,
+                    'model': Event.__name__,
                 }
             )
             return event
@@ -700,6 +734,7 @@ class EventManager(object):
                 organization_id=project.organization_id,
                 project_id=project.id,
                 group_id=group.id,
+                environment_id=environment.id,
                 event_id=event.id,
                 tags=tags,
             )
@@ -859,6 +894,12 @@ class EventManager(object):
                     ).values_list('id', flat=True).first() if first_release else None,
                     **kwargs
                 ), True
+
+            metrics.incr(
+                'group.created',
+                skip_internal=True,
+                tags={'platform': event.platform or 'unknown'}
+            )
 
         else:
             group = Group.objects.get(id=existing_group_id)

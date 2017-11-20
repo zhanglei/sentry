@@ -20,9 +20,9 @@ from sentry.api.serializers.models.group import (
 from sentry.constants import DEFAULT_SORT_OPTION
 from sentry.db.models.query import create_or_update
 from sentry.models import (
-    Activity, EventMapping, Group, GroupAssignee, GroupBookmark, GroupHash, GroupResolution,
-    GroupSeen, GroupSnooze, GroupStatus, GroupSubscription, GroupSubscriptionReason, GroupTombstone,
-    Release, TagKey, TOMBSTONE_FIELDS_FROM_GROUP, UserOption
+    Activity, Group, GroupAssignee, GroupBookmark, GroupHash, GroupResolution,
+    GroupSeen, GroupShare, GroupSnooze, GroupStatus, GroupSubscription, GroupSubscriptionReason,
+    GroupTombstone, Release, TOMBSTONE_FIELDS_FROM_GROUP, UserOption
 )
 from sentry.models.event import Event
 from sentry.models.group import looks_like_short_id
@@ -184,32 +184,8 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint):
     def _build_query_params_from_request(self, request, project):
         query_kwargs = {
             'project': project,
+            'sort_by': request.GET.get('sort', DEFAULT_SORT_OPTION),
         }
-
-        if request.GET.get('status'):
-            try:
-                query_kwargs['status'] = STATUS_CHOICES[request.GET['status']]
-            except KeyError:
-                raise ValidationError('invalid status')
-
-        if request.user.is_authenticated() and request.GET.get('bookmarks'):
-            query_kwargs['bookmarked_by'] = request.user
-
-        if request.user.is_authenticated() and request.GET.get('assigned'):
-            query_kwargs['assigned_to'] = request.user
-
-        sort_by = request.GET.get('sort')
-        if sort_by is None:
-            sort_by = DEFAULT_SORT_OPTION
-
-        query_kwargs['sort_by'] = sort_by
-
-        tags = {}
-        for tag_key in TagKey.objects.all_keys(project):
-            if request.GET.get(tag_key):
-                tags[tag_key] = request.GET[tag_key]
-        if tags:
-            query_kwargs['tags'] = tags
 
         limit = request.GET.get('limit')
         if limit:
@@ -248,9 +224,6 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint):
             if self_assign_issue == '1' and not group.assignee_set.exists():
                 result['assignedTo'] = extract_lazy_object(acting_user)
 
-    # bookmarks=0/1
-    # status=<x>
-    # <tag>=<value>
     # statsPeriod=24h
     @attach_scenarios([list_project_issues_scenario])
     def get(self, request, project):
@@ -304,14 +277,10 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint):
             if len(query) == 32:
                 # check to see if we've got an event ID
                 try:
-                    mapping = EventMapping.objects.get(
-                        project_id=project.id,
-                        event_id=query,
-                    )
-                except EventMapping.DoesNotExist:
+                    matching_group = Group.objects.from_event_id(project, query)
+                except Group.DoesNotExist:
                     pass
                 else:
-                    matching_group = Group.objects.get(id=mapping.group_id)
                     try:
                         matching_event = Event.objects.get(
                             event_id=query, project_id=project.id)
@@ -406,7 +375,7 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint):
         :pparam string project_slug: the slug of the project the issues
                                      belong to.
         :param string status: the new status for the issues.  Valid values
-                              are ``"resolved"``, ``resolvedInNextRelease``,
+                              are ``"resolved"``, ``"resolvedInNextRelease"``,
                               ``"unresolved"``, and ``"ignored"``.
         :param int ignoreDuration: the number of minutes to ignore this issue.
         :param boolean isPublic: sets the issue to public or private.
@@ -799,30 +768,35 @@ class ProjectGroupIndexEndpoint(ProjectEndpoint):
                 ),
             }
 
+        if 'isPublic' in result:
+            # We always want to delete an existing share, because triggering
+            # an isPublic=True even when it's already public, should trigger
+            # regenerating.
+            for group in group_list:
+                if GroupShare.objects.filter(group=group).delete():
+                    result['shareId'] = None
+                    Activity.objects.create(
+                        project=group.project,
+                        group=group,
+                        type=Activity.SET_PRIVATE,
+                        user=acting_user,
+                    )
+
         if result.get('isPublic'):
-            queryset.update(is_public=True)
             for group in group_list:
-                if group.is_public:
-                    continue
-                group.is_public = True
-                Activity.objects.create(
+                share, created = GroupShare.objects.get_or_create(
                     project=group.project,
                     group=group,
-                    type=Activity.SET_PUBLIC,
                     user=acting_user,
                 )
-        elif result.get('isPublic') is False:
-            queryset.update(is_public=False)
-            for group in group_list:
-                if not group.is_public:
-                    continue
-                group.is_public = False
-                Activity.objects.create(
-                    project=group.project,
-                    group=group,
-                    type=Activity.SET_PRIVATE,
-                    user=acting_user,
-                )
+                if created:
+                    result['shareId'] = share.uuid
+                    Activity.objects.create(
+                        project=group.project,
+                        group=group,
+                        type=Activity.SET_PUBLIC,
+                        user=acting_user,
+                    )
 
         # XXX(dcramer): this feels a bit shady like it should be its own
         # endpoint

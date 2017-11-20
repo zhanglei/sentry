@@ -203,6 +203,7 @@ TEMPLATE_LOADERS = (
 )
 
 MIDDLEWARE_CLASSES = (
+    'sentry.middleware.proxy.ChunkedMiddleware',
     'sentry.middleware.proxy.ContentLengthHeaderMiddleware',
     'sentry.middleware.security.SecurityHeadersMiddleware',
     'sentry.middleware.maintenance.ServicesUnavailableMiddleware',
@@ -424,10 +425,11 @@ CELERY_IMPORTS = (
     'sentry.tasks.auth', 'sentry.tasks.auto_resolve_issues', 'sentry.tasks.beacon',
     'sentry.tasks.check_auth', 'sentry.tasks.clear_expired_snoozes',
     'sentry.tasks.collect_project_platforms', 'sentry.tasks.commits', 'sentry.tasks.deletion',
-    'sentry.tasks.digests', 'sentry.tasks.dsymcache', 'sentry.tasks.email', 'sentry.tasks.merge',
+    'sentry.tasks.digests', 'sentry.tasks.email', 'sentry.tasks.merge',
     'sentry.tasks.options', 'sentry.tasks.ping', 'sentry.tasks.post_process',
     'sentry.tasks.process_buffer', 'sentry.tasks.reports', 'sentry.tasks.reprocessing',
     'sentry.tasks.scheduler', 'sentry.tasks.store', 'sentry.tasks.unmerge',
+    'sentry.tasks.symcache_update',
 )
 CELERY_QUEUES = [
     Queue('alerts', routing_key='alerts'),
@@ -544,14 +546,6 @@ CELERYBEAT_SCHEDULE = {
             'expires': 300,
         },
     },
-    # Disabled for the time being:
-    # 'clear-old-cached-dsyms': {
-    #     'task': 'sentry.tasks.clear_old_cached_dsyms',
-    #     'schedule': timedelta(minutes=60),
-    #     'options': {
-    #         'expires': 3600,
-    #     },
-    # },
     'collect-project-platforms': {
         'task': 'sentry.tasks.collect_project_platforms',
         'schedule': timedelta(days=1),
@@ -586,6 +580,13 @@ CELERYBEAT_SCHEDULE = {
             'expires': 60 * 60 * 3,
         },
     },
+}
+
+BGTASKS = {
+    'sentry.bgtasks.clean_dsymcache:clean_dsymcache': {
+        'interval': 5 * 60,
+        'roles': ['worker'],
+    }
 }
 
 # Sentry logs to two major places: stdout, and it's internal project.
@@ -722,9 +723,12 @@ SENTRY_FEATURES = {
     'organizations:create': True,
     'organizations:repos': True,
     'organizations:sso': True,
-    'organizations:saml2': False,
+    'organizations:sso-saml2': False,
+    'organizations:sso-rippling': False,
     'organizations:group-unmerge': False,
     'organizations:integrations-v3': False,
+    'organizations:invite-members': True,
+    'organizations:new-settings': False,
     'projects:global-events': False,
     'projects:plugins': True,
     'projects:dsym': False,
@@ -733,6 +737,7 @@ SENTRY_FEATURES = {
     'projects:rate-limits': True,
     'projects:custom-filters': False,
     'projects:custom-inbound-filters': False,
+    'projects:minidump': False,
 }
 
 # Default time zone for localization in the UI.
@@ -834,6 +839,7 @@ SENTRY_FILESTORE_ALIASES = {
 
 SENTRY_ANALYTICS_ALIASES = {
     'noop': 'sentry.analytics.Analytics',
+    'pubsub': 'sentry.analytics.pubsub.PubSubAnalytics',
 }
 
 # set of backends that do not support needing SMTP mail.* settings
@@ -853,7 +859,7 @@ SENTRY_SMTP_DISABLED_BACKENDS = frozenset(
 # make projects public
 SENTRY_ALLOW_PUBLIC_PROJECTS = True
 
-# Can users be invited to organizations?
+# Will an invite be sent when a member is added to an organization?
 SENTRY_ENABLE_INVITES = True
 
 # Default to not sending the Access-Control-Allow-Origin header on api/store
@@ -903,6 +909,10 @@ SENTRY_DEFAULT_MAX_EVENTS_PER_MINUTE = '90%'
 # Node storage backend
 SENTRY_NODESTORE = 'sentry.nodestore.django.DjangoNodeStorage'
 SENTRY_NODESTORE_OPTIONS = {}
+
+# Tag storage backend
+SENTRY_TAGSTORE = 'sentry.tagstore.legacy.LegacyTagStorage'
+SENTRY_TAGSTORE_OPTIONS = {}
 
 # Search backend
 SENTRY_SEARCH = 'sentry.search.django.DjangoSearchBackend'

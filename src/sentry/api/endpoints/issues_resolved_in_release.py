@@ -9,7 +9,7 @@ from sentry.api.serializers import serialize
 from sentry.api.serializers.models.group import StreamGroupSerializer
 from sentry.models import (
     Group,
-    GroupCommitResolution,
+    GroupLink,
     GroupResolution,
     Release,
     ReleaseCommit,
@@ -23,7 +23,7 @@ class IssuesResolvedInReleaseEndpoint(ProjectEndpoint):
     def get(self, request, project, version):
         """
         List issues to be resolved in a particular release
-        ````````````````````````
+        ``````````````````````````````````````````````````
 
         Retrieve a list of issues to be resolved in a given release.
 
@@ -45,8 +45,9 @@ class IssuesResolvedInReleaseEndpoint(ProjectEndpoint):
             ).values_list('group_id', flat=True)
         )
         group_ids |= set(
-            GroupCommitResolution.objects.filter(
-                commit_id__in=ReleaseCommit.objects.filter(
+            GroupLink.objects.filter(
+                linked_type=GroupLink.LinkedType.commit,
+                linked_id__in=ReleaseCommit.objects.filter(
                     release=release,
                 ).values_list(
                     'commit_id',

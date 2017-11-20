@@ -1,3 +1,4 @@
+import {isString} from 'lodash';
 import {defined} from '../../../utils';
 
 export function escapeQuotes(v) {
@@ -29,15 +30,23 @@ export function getCurlCommand(data) {
     result += ' \\\n -H "' + header[0] + ': ' + escapeQuotes(header[1] + '') + '"';
   }
 
-  switch (data.inferredContentType) {
-    case 'application/json':
-      result += ' \\\n --data "' + escapeQuotes(JSON.stringify(data.data)) + '"';
-      break;
-    case 'application/x-www-form-urlencoded':
-      result += ' \\\n --data "' + escapeQuotes(jQuery.param(data.data)) + '"';
-      break;
-    default:
-      result += ' \\\n --data "' + escapeQuotes(data.data) + '"';
+  if (defined(data.data)) {
+    switch (data.inferredContentType) {
+      case 'application/json':
+        result += ' \\\n --data "' + escapeQuotes(JSON.stringify(data.data)) + '"';
+        break;
+      case 'application/x-www-form-urlencoded':
+        result += ' \\\n --data "' + escapeQuotes(jQuery.param(data.data)) + '"';
+        break;
+      default:
+        if (isString(data.data)) {
+          result += ' \\\n --data "' + escapeQuotes(data.data) + '"';
+        } else {
+          Raven.captureMessage('Unknown event data', {
+            extra: data,
+          });
+        }
+    }
   }
 
   result += ' \\\n "' + data.url;

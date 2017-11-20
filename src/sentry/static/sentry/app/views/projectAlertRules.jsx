@@ -1,20 +1,23 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 
+import {t} from '../locale';
 import ApiMixin from '../mixins/apiMixin';
+import Button from '../components/buttons/button';
+import Confirm from '../components/confirm';
 import Duration from '../components/duration';
 import IndicatorStore from '../stores/indicatorStore';
 import ListLink from '../components/listLink';
 import LoadingError from '../components/loadingError';
 import LoadingIndicator from '../components/loadingIndicator';
-import {t} from '../locale';
+import SpreadLayout from '../components/spreadLayout';
 
 const RuleRow = React.createClass({
   propTypes: {
     orgId: PropTypes.string.isRequired,
     projectId: PropTypes.string.isRequired,
     data: PropTypes.object.isRequired,
-    onDelete: PropTypes.func.isRequired
+    onDelete: PropTypes.func.isRequired,
   },
 
   mixins: [ApiMixin],
@@ -22,13 +25,11 @@ const RuleRow = React.createClass({
   getInitialState() {
     return {
       loading: false,
-      error: false
+      error: false,
     };
   },
 
   onDelete() {
-    /* eslint no-alert:0*/
-    if (!confirm('Are you sure you want to remove this rule?')) return;
     if (this.state.loading) return;
 
     let loadingIndicator = IndicatorStore.add(t('Saving changes..'));
@@ -42,11 +43,11 @@ const RuleRow = React.createClass({
       error: () => {
         this.setState({
           error: true,
-          loading: false
+          loading: false,
         });
         IndicatorStore.remove(loadingIndicator);
         IndicatorStore.add(t('Unable to save changes. Please try again.'), 'error');
-      }
+      },
     });
   },
 
@@ -57,17 +58,27 @@ const RuleRow = React.createClass({
       <div className="box">
         <div className="box-header">
           <div className="pull-right">
-            <a className="btn btn-sm btn-default" href={editLink}>{t('Edit Rule')}</a>
-            <a className="btn btn-sm btn-default" onClick={this.onDelete}>
-              <span className="icon-trash" style={{marginRight: 3}} />
-            </a>
+            <Button style={{marginRight: 5}} size="small" href={editLink}>
+              {t('Edit Rule')}
+            </Button>
+
+            <Confirm
+              message={t('Are you sure you want to remove this rule?')}
+              onConfirm={this.onDelete}
+            >
+              <Button size="small">
+                <span className="icon-trash" />
+              </Button>
+            </Confirm>
           </div>
-          <h3><a href={editLink}>{data.name}</a></h3>
+          <h3>
+            <a href={editLink}>{data.name}</a>
+          </h3>
         </div>
         <div className="box-content with-padding">
           <div className="row">
             <div className="col-md-6">
-              {data.conditions.length !== 0 &&
+              {data.conditions.length !== 0 && (
                 <div>
                   <h6>
                     When <strong>{data.actionMatch}</strong> of these conditions are met:
@@ -81,16 +92,17 @@ const RuleRow = React.createClass({
                       );
                     })}
                   </table>
-                </div>}
+                </div>
+              )}
             </div>
             <div className="col-md-6">
-              {data.actions.length !== 0 &&
+              {data.actions.length !== 0 && (
                 <div>
                   <h6>
-                    Take these actions at most
-                    {' '}
-                    <strong>once every <Duration seconds={data.frequency * 60} /></strong>
-                    {' '}
+                    Take these actions at most{' '}
+                    <strong>
+                      once every <Duration seconds={data.frequency * 60} />
+                    </strong>{' '}
                     for an issue:
                   </h6>
                   <table className="actions-list table">
@@ -102,13 +114,14 @@ const RuleRow = React.createClass({
                       );
                     })}
                   </table>
-                </div>}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
     );
-  }
+  },
 });
 
 const ProjectAlertRules = React.createClass({
@@ -118,7 +131,7 @@ const ProjectAlertRules = React.createClass({
     return {
       loading: true,
       error: false,
-      ruleList: []
+      ruleList: [],
     };
   },
 
@@ -133,21 +146,21 @@ const ProjectAlertRules = React.createClass({
         this.setState({
           error: false,
           loading: false,
-          ruleList: data
+          ruleList: data,
         });
       },
       error: () => {
         this.setState({
           error: true,
-          loading: false
+          loading: false,
         });
-      }
+      },
     });
   },
 
   onDeleteRule(rule) {
     this.setState({
-      ruleList: this.state.ruleList.filter(r => r.id !== rule.id)
+      ruleList: this.state.ruleList.filter(r => r.id !== rule.id),
     });
   },
 
@@ -202,13 +215,18 @@ const ProjectAlertRules = React.createClass({
     let {orgId, projectId} = this.props.params;
     return (
       <div>
-        <a
-          href={`/${orgId}/${projectId}/settings/alerts/rules/new/`}
-          className="btn pull-right btn-primary btn-sm">
-          <span className="icon-plus" />
-          {t('New Alert Rule')}
-        </a>
-        <h2>{t('Alerts')}</h2>
+        <SpreadLayout style={{marginBottom: 20}}>
+          <h2 style={{margin: 0}}>{t('Alerts')}</h2>
+          <Button
+            href={`/${orgId}/${projectId}/settings/alerts/rules/new/`}
+            priority="primary"
+            size="small"
+            className="pull-right"
+          >
+            <span className="icon-plus" />
+            {t('New Alert Rule')}
+          </Button>
+        </SpreadLayout>
 
         <ul className="nav nav-tabs" style={{borderBottom: '1px solid #ddd'}}>
           <ListLink to={`/${orgId}/${projectId}/settings/alerts/`} index={true}>
@@ -222,7 +240,7 @@ const ProjectAlertRules = React.createClass({
         {this.renderBody()}
       </div>
     );
-  }
+  },
 });
 
 export default ProjectAlertRules;

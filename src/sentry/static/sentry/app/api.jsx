@@ -2,7 +2,6 @@ import $ from 'jquery';
 import _ from 'lodash';
 
 import GroupActions from './actions/groupActions';
-import TeamActions from './actions/teamActions';
 
 export class Request {
   constructor(xhr) {
@@ -24,8 +23,8 @@ export function paramsToQueryArgs(params) {
   return params.itemIds
     ? {id: params.itemIds} // items matching array of itemids
     : params.query
-        ? {query: params.query} // items matching search query
-        : undefined; // all items
+      ? {query: params.query} // items matching search query
+      : undefined; // all items
 }
 
 export class Client {
@@ -39,7 +38,9 @@ export class Client {
 
   uniqueId() {
     let s4 = () => {
-      return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+      return Math.floor((1 + Math.random()) * 0x10000)
+        .toString(16)
+        .substring(1);
     };
     return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
   }
@@ -98,15 +99,29 @@ export class Client {
         data,
         contentType: 'application/json',
         headers: {
-          Accept: 'application/json; charset=utf-8'
+          Accept: 'application/json; charset=utf-8',
         },
         success: this.wrapCallback(id, options.success),
         error: this.wrapCallback(id, options.error),
-        complete: this.wrapCallback(id, options.complete, true)
+        complete: this.wrapCallback(id, options.complete, true),
       })
     );
 
     return this.activeRequests[id];
+  }
+
+  requestPromise(path, options = {}) {
+    return new Promise((resolve, reject) => {
+      this.request(path, {
+        ...options,
+        success: (data, ...args) => {
+          resolve(data);
+        },
+        error: (error, ...args) => {
+          reject(error);
+        },
+      });
+    });
   }
 
   _chain(...funcs) {
@@ -147,7 +162,7 @@ export class Client {
         },
         error: error => {
           GroupActions.deleteError(id, params.itemIds, error);
-        }
+        },
       },
       options
     );
@@ -171,7 +186,7 @@ export class Client {
         },
         error: error => {
           GroupActions.updateError(id, params.itemIds, error, params.failSilently);
-        }
+        },
       },
       options
     );
@@ -195,7 +210,7 @@ export class Client {
         },
         error: error => {
           GroupActions.mergeError(id, params.itemIds, error);
-        }
+        },
       },
       options
     );
@@ -206,7 +221,7 @@ export class Client {
     let id = this.uniqueId();
 
     GroupActions.assignTo(id, params.id, {
-      email: (params.member && params.member.email) || ''
+      email: (params.member && params.member.email) || '',
     });
 
     return this._wrapRequest(
@@ -222,63 +237,7 @@ export class Client {
         },
         error: error => {
           GroupActions.assignToError(id, params.id, error);
-        }
-      },
-      options
-    );
-  }
-
-  joinTeam(params, options) {
-    let path =
-      '/organizations/' +
-      params.orgId +
-      '/members/' +
-      (params.memberId || 'me') +
-      '/teams/' +
-      params.teamId +
-      '/';
-    let id = this.uniqueId();
-
-    TeamActions.update(id, params.teamId);
-
-    return this._wrapRequest(
-      path,
-      {
-        method: 'POST',
-        success: response => {
-          TeamActions.updateSuccess(id, params.teamId, response);
         },
-        error: error => {
-          TeamActions.updateError(id, params.teamId, error);
-        }
-      },
-      options
-    );
-  }
-
-  leaveTeam(params, options) {
-    let path =
-      '/organizations/' +
-      params.orgId +
-      '/members/' +
-      (params.memberId || 'me') +
-      '/teams/' +
-      params.teamId +
-      '/';
-    let id = this.uniqueId();
-
-    TeamActions.update(id, params.teamId);
-
-    return this._wrapRequest(
-      path,
-      {
-        method: 'DELETE',
-        success: response => {
-          TeamActions.updateSuccess(id, params.teamId, response);
-        },
-        error: error => {
-          TeamActions.updateError(id, params.teamId, error);
-        }
       },
       options
     );

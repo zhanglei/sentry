@@ -50,6 +50,37 @@ class AppearanceSettingsTest(TestCase):
         assert options.get('clock_24_hours') is True
 
 
+class SettingsEmailTest(TestCase):
+    @fixture
+    def path(self):
+        return reverse('sentry-account-settings-emails')
+
+    def test_change_primary_email(self):
+        self.login_as(self.user)
+        self.create_user('foo@example.com')
+
+        # setting primary email changes it
+        self.client.post(self.path, {
+            'new_primary_email': 'foo1@example.com',
+            'primary': 1
+        })
+        assert User.objects.get(id=self.user.id).email == 'foo1@example.com'
+
+        # setting primary email to an existing user's email leaves it unchanged
+        self.client.post(self.path, {
+            'new_primary_email': 'foo@example.com',
+            'primary': 1
+        })
+        assert User.objects.get(id=self.user.id).email == 'foo1@example.com'
+
+        # setting primary to existing email + whitespace leaves it unchanged
+        self.client.post(self.path, {
+            'new_primary_email': 'foo@example.com\n\n',
+            'primary': 1
+        })
+        assert User.objects.get(id=self.user.id).email == 'foo1@example.com'
+
+
 class SettingsTest(TestCase):
     @fixture
     def path(self):
@@ -232,7 +263,7 @@ class RecoverPasswordTest(TestCase):
         assert 'form' in resp.context
         assert 'user' in resp.context['form'].errors
 
-    @mock.patch('sentry.models.LostPasswordHash.send_recover_mail')
+    @mock.patch('sentry.models.LostPasswordHash.send_email')
     def test_valid_username(self, send_recover_mail):
         resp = self.client.post(self.path, {
             'user': self.user.username

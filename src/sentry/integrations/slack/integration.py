@@ -14,14 +14,28 @@ class SlackIntegration(OAuth2Integration):
 
     oauth_access_token_url = 'https://slack.com/api/oauth.access'
     oauth_authorize_url = 'https://slack.com/oauth/authorize'
-    oauth_client_id = options.get('slack.client-id')
-    oauth_client_secret = options.get('slack.client-secret')
-    oauth_scopes = (
+    oauth_scopes = tuple(sorted((
         'bot',
         'chat:write:bot',
         'commands',
+        'links:read',
+        'links:write',
         'team:read',
-    )
+    )))
+
+    def get_oauth_client_id(self):
+        return options.get('slack.client-id')
+
+    def get_oauth_client_secret(self):
+        return options.get('slack.client-secret')
+
+    def get_config(self):
+        return [{
+            'name': 'unfurl_urls',
+            'label': 'Unfurl URLs',
+            'type': 'bool',
+            'help': 'Unfurl any URLs which reference a Sentry issue.',
+        }]
 
     def build_integration(self, state):
         data = state['data']
@@ -34,6 +48,9 @@ class SlackIntegration(OAuth2Integration):
             'metadata': {
                 'bot_access_token': data['bot']['bot_access_token'],
                 'bot_user_id': data['bot']['bot_user_id'],
+                # XXX: should this be stored with OrganizationIntegration?
+                # is there any concern of access?
+                'access_token': data['access_token'],
                 'scopes': sorted(data['scope'].split(',')),
             },
             'identity': self.build_identity(state)

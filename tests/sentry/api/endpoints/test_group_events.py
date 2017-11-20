@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import six
 
-from sentry.models import EventTag, TagKey, TagValue
+from sentry import tagstore
 from sentry.testutils import APITestCase
 
 
@@ -33,32 +33,46 @@ class GroupEventsTest(APITestCase):
         event_1 = self.create_event('a' * 32, group=group)
         event_2 = self.create_event('b' * 32, group=group)
 
-        tagkey_1 = TagKey.objects.create(project_id=group.project_id, key='foo')
-        tagkey_2 = TagKey.objects.create(project_id=group.project_id, key='bar')
-        tagvalue_1 = TagValue.objects.create(project_id=group.project_id, key='foo', value='baz')
-        tagvalue_2 = TagValue.objects.create(project_id=group.project_id, key='bar', value='biz')
-        tagvalue_3 = TagValue.objects.create(project_id=group.project_id, key='bar', value='buz')
+        tagkey_1 = tagstore.create_tag_key(
+            project_id=group.project_id,
+            environment_id=self.environment.id,
+            key='foo')
+        tagkey_2 = tagstore.create_tag_key(
+            project_id=group.project_id,
+            environment_id=self.environment.id,
+            key='bar')
+        tagvalue_1 = tagstore.create_tag_value(
+            project_id=group.project_id,
+            environment_id=self.environment.id,
+            key='foo',
+            value='baz')
+        tagvalue_2 = tagstore.create_tag_value(
+            project_id=group.project_id,
+            environment_id=self.environment.id,
+            key='bar',
+            value='biz')
+        tagvalue_3 = tagstore.create_tag_value(
+            project_id=group.project_id,
+            environment_id=self.environment.id,
+            key='bar',
+            value='buz')
 
-        EventTag.objects.create(
+        tagstore.create_event_tags(
             project_id=group.project_id,
             group_id=group.id,
             event_id=event_1.id,
-            key_id=tagkey_1.id,
-            value_id=tagvalue_1.id,
+            tags=[
+                (tagkey_1.id, tagvalue_1.id),
+                (tagkey_2.id, tagvalue_3.id),
+            ],
         )
-        EventTag.objects.create(
+        tagstore.create_event_tags(
             project_id=group.project_id,
             group_id=group.id,
             event_id=event_2.id,
-            key_id=tagkey_2.id,
-            value_id=tagvalue_2.id,
-        )
-        EventTag.objects.create(
-            project_id=group.project_id,
-            group_id=group.id,
-            event_id=event_1.id,
-            key_id=tagkey_2.id,
-            value_id=tagvalue_3.id,
+            tags=[
+                (tagkey_2.id, tagvalue_2.id),
+            ],
         )
 
         url = '/api/0/issues/{}/events/'.format(group.id)

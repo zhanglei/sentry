@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from sentry import tsdb
 from sentry.app import raven
-from sentry.models import ApiKey, AuditLogEntry
+from sentry.models import ApiKey, AuditLogEntry, Environment
 from sentry.utils.cursors import Cursor
 from sentry.utils.dates import to_datetime
 from sentry.utils.http import absolute_uri, is_valid_origin
@@ -27,7 +27,7 @@ from .authentication import ApiKeyAuthentication, TokenAuthentication
 from .paginator import Paginator
 from .permissions import NoPermission
 
-__all__ = ['DocSection', 'Endpoint', 'StatsMixin']
+__all__ = ['DocSection', 'Endpoint', 'EnvironmentMixin', 'StatsMixin']
 
 ONE_MINUTE = 60
 ONE_HOUR = ONE_MINUTE * 60
@@ -35,7 +35,8 @@ ONE_DAY = ONE_HOUR * 24
 
 LINK_HEADER = '<{uri}&cursor={cursor}>; rel="{name}"; results="{has_results}"; cursor="{cursor}"'
 
-DEFAULT_AUTHENTICATION = (TokenAuthentication, ApiKeyAuthentication, SessionAuthentication, )
+DEFAULT_AUTHENTICATION = (
+    TokenAuthentication, ApiKeyAuthentication, SessionAuthentication, )
 
 logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger('sentry.audit.api')
@@ -158,15 +159,25 @@ class Endpoint(APIView):
             if origin and request.auth:
                 allowed_origins = request.auth.get_allowed_origins()
                 if not is_valid_origin(origin, allowed=allowed_origins):
-                    response = Response('Invalid origin: %s' % (origin, ), status=400)
-                    self.response = self.finalize_response(request, response, *args, **kwargs)
+                    response = Response('Invalid origin: %s' %
+                                        (origin, ), status=400)
+                    self.response = self.finalize_response(
+                        request, response, *args, **kwargs)
                     return self.response
 
             self.initial(request, *args, **kwargs)
 
+            if getattr(request, 'user', None) and request.user.is_authenticated():
+                raven.user_context({
+                    'id': request.user.id,
+                    'username': request.user.username,
+                    'email': request.user.email,
+                })
+
             # Get the appropriate handler method
             if request.method.lower() in self.http_method_names:
-                handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
+                handler = getattr(self, request.method.lower(),
+                                  self.http_method_not_allowed)
 
                 (args, kwargs) = self.convert_args(request, *args, **kwargs)
                 self.args = args
@@ -182,13 +193,15 @@ class Endpoint(APIView):
         if origin:
             self.add_cors_headers(request, response)
 
-        self.response = self.finalize_response(request, response, *args, **kwargs)
+        self.response = self.finalize_response(
+            request, response, *args, **kwargs)
 
         return self.response
 
     def add_cors_headers(self, request, response):
         response['Access-Control-Allow-Origin'] = request.META['HTTP_ORIGIN']
-        response['Access-Control-Allow-Methods'] = ', '.join(self.http_method_names)
+        response['Access-Control-Allow-Methods'] = ', '.join(
+            self.http_method_names)
 
     def add_cursor_headers(self, request, response, cursor_result):
         if cursor_result.hits is not None:
@@ -197,7 +210,8 @@ class Endpoint(APIView):
             response['X-Max-Hits'] = cursor_result.max_hits
         response['Link'] = ', '.join(
             [
-                self.build_cursor_link(request, 'previous', cursor_result.prev),
+                self.build_cursor_link(
+                    request, 'previous', cursor_result.prev),
                 self.build_cursor_link(request, 'next', cursor_result.next),
             ]
         )
@@ -230,6 +244,28 @@ class Endpoint(APIView):
         response = Response(results)
         self.add_cursor_headers(request, response, cursor_result)
         return response
+
+
+class EnvironmentMixin(object):
+    def _get_environment_id_from_request(self, request, organization_id):
+        environment = self._get_environment_from_request(request, organization_id)
+
+        return environment and environment.id
+
+    def _get_environment_from_request(self, request, organization_id):
+        if not hasattr(request, '_cached_environment'):
+            environment_param = request.GET.get('environment')
+            if environment_param is None:
+                environment = None
+            else:
+                environment = Environment.get_for_organization_id(
+                    name=environment_param,
+                    organization_id=organization_id,
+                )
+
+            request._cached_environment = environment
+
+        return request._cached_environment
 
 
 class StatsMixin(object):

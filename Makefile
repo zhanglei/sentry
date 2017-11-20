@@ -21,7 +21,7 @@ install-yarn:
 	@echo "--> Installing Node dependencies"
 	@hash yarn 2> /dev/null || (echo 'Cannot continue with JavaScript dependencies. Please install yarn before proceeding. For more information refer to https://yarnpkg.com/lang/en/docs/install/'; echo 'If you are on a mac run:'; echo '  brew install yarn'; exit 1)
 	# Use NODE_ENV=development so that yarn installs both dependencies + devDependencies
-	NODE_ENV=development yarn install --ignore-optional --pure-lockfile
+	NODE_ENV=development yarn install --pure-lockfile
 	# Fix phantomjs-prebuilt not installed via yarn
 	# See: https://github.com/karma-runner/karma-phantomjs-launcher/issues/120#issuecomment-262634703
 	node ./node_modules/phantomjs-prebuilt/install.js
@@ -32,7 +32,7 @@ install-brew:
 install-python:
 	# must be executed serialially
 	$(MAKE) install-python-base
-	$(MAKE) install-python-tests
+	$(MAKE) install-python-develop
 
 install-python-base:
 	@echo "--> Installing Python dependencies"
@@ -42,8 +42,11 @@ install-python-base:
 	$(PIP) install ujson
 	$(PIP) install "file://`pwd`#egg=sentry[dev]"
 
-install-python-tests:
+install-python-develop:
 	$(PIP) install "file://`pwd`#egg=sentry[dev,tests]"
+
+install-python-tests:
+	$(PIP) install "file://`pwd`#egg=sentry[dev,tests,optional]"
 
 dev-postgres: install-python
 
@@ -128,6 +131,11 @@ test-js:
 	@${NPM_ROOT}/.bin/webpack
 	@echo "--> Running JavaScript tests"
 	@npm run test-ci
+	@echo ""
+
+# builds and creates percy snapshots
+test-styleguide:
+	@echo "--> Building and snapshotting styleguide"
 	@npm run snapshot
 	@echo ""
 
@@ -151,11 +159,6 @@ test-acceptance: build-platform-assets
 	py.test tests/acceptance --cov . --cov-report="xml:coverage.xml" --junit-xml="junit.xml" --html="pytest.html"
 	@echo ""
 
-test-python-coverage: build-platform-assets
-	@echo "--> Running Python tests"
-	SOUTH_TESTS_MIGRATE=1 coverage run --source=src/sentry -m py.test tests/integration tests/sentry
-	@echo ""
-
 lint: lint-python lint-js
 
 lint-python:
@@ -169,7 +172,7 @@ lint-js:
 	@echo ""
 
 coverage: develop
-	$(MAKE) test-python-coverage
+	$(MAKE) test-python
 	coverage html
 
 publish:
@@ -180,7 +183,7 @@ extract-api-docs:
 	cd api-docs; python generator.py
 
 
-.PHONY: develop dev-postgres dev-docs setup-git build clean locale update-transifex update-submodules test testloop test-cli test-js test-python test-acceptance test-python-coverage lint lint-python lint-js coverage publish
+.PHONY: develop dev-postgres dev-docs setup-git build clean locale update-transifex update-submodules test testloop test-cli test-js test-styleguide test-python test-acceptance lint lint-python lint-js coverage publish
 
 
 ############################
@@ -195,7 +198,8 @@ travis-setup-cassandra:
 	echo 'create table nodestore (key text primary key, value blob, flags int);' | cqlsh -k sentry --cqlversion=3.1.7
 travis-install-python:
 	$(MAKE) travis-upgrade-pip
-	$(MAKE) install-python install-python
+	$(MAKE) install-python-base
+	$(MAKE) install-python-tests
 	python -m pip install codecov
 travis-noop:
 	@echo "nothing to do here."
@@ -214,11 +218,11 @@ travis-install-acceptance: install-yarn travis-install-postgres
 travis-install-network: travis-install-postgres
 travis-install-js:
 	$(MAKE) travis-upgrade-pip
-	$(MAKE) install-python install-yarn
+	$(MAKE) travis-install-python install-yarn
 travis-install-cli: travis-install-postgres
 travis-install-dist:
 	$(MAKE) travis-upgrade-pip
-	$(MAKE) install-python install-yarn
+	$(MAKE) travis-install-python install-yarn
 travis-install-django-18: travis-install-postgres
 	pip install "Django>=1.8,<1.9"
 
@@ -241,12 +245,14 @@ travis-lint-django-18: travis-lint-postgres
 # Test steps
 travis-test-danger:
 	bundle exec danger
-travis-test-sqlite: test-python-coverage
-travis-test-postgres: test-python-coverage
-travis-test-mysql: test-python-coverage
+travis-test-sqlite: test-python
+travis-test-postgres: test-python
+travis-test-mysql: test-python
 travis-test-acceptance: test-acceptance
 travis-test-network: test-network
-travis-test-js: test-js
+travis-test-js:
+	$(MAKE) test-js
+	$(MAKE) test-styleguide
 travis-test-cli: test-cli
 travis-test-dist:
 	SENTRY_BUILD=$(TRAVIS_COMMIT) SENTRY_LIGHT_BUILD=0 python setup.py sdist bdist_wheel
