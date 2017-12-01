@@ -62,8 +62,8 @@ class AuditLogEntryEvent(object):
     RULE_EDIT = 81
     RULE_REMOVE = 82
 
-    TRIAL_STARTED = 90
-    PLAN_CHANGED = 91
+    TRIAL_STARTED = 91
+    PLAN_CHANGED = 92
 
 
 class AuditLogEntry(Model):
