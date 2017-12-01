@@ -30,9 +30,10 @@ from social_auth.models import UserSocialAuth
 from sudo.decorators import sudo_required
 
 from sentry import newsletter
-from sentry.models import (User, UserEmail, LostPasswordHash, Project, UserOption, Authenticator)
+from sentry.models import (User, UserEmail, LostPasswordHash, Project, UserOption, Authenticator, Organization)
 from sentry.security import capture_security_activity
 from sentry.signals import email_verified
+from sentry.identity.pipeline import IdentityProviderPipeline
 from sentry.web.decorators import login_required, signed_auth_required
 from sentry.web.forms.accounts import (
     AccountSettingsForm, AppearanceSettingsForm, RecoverPasswordForm, ChangePasswordRecoverForm,
@@ -485,6 +486,32 @@ def disconnect_identity(request, identity_id):
         }
     )
     return HttpResponseRedirect(reverse('sentry-account-settings-identities'))
+
+
+@csrf_protect
+@never_cache
+@login_required
+def associate_identity(request, org_slug, provider_key):
+    org = Organization.objects.get(slug=org_slug)
+
+    pipeline = IdentityProviderPipeline(
+        organization=org,
+        provider_key=provider_key,
+        request=request,
+    )
+
+    if request.method != 'POST' and not pipeline.is_valid():
+        context = {
+            'provider_key': provider_key,
+            'provider_name': 'Slack',
+            'organization_name': org.name,
+        }
+        return render_to_response('sentry/auth-link-identity.html', context, request)
+
+    if 'init' in request.POST:
+        pipeline.initialize()
+
+    return pipeline.current_step()
 
 
 @csrf_protect

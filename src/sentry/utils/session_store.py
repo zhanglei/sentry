@@ -53,7 +53,6 @@ class RedisSessionStore(object):
         redis_key = 'session-cache:{}:{}'.format(self.prefix, uuid4().hex)
 
         self.request.session[self.session_key] = redis_key
-        self.request.session.modified = True
 
         value = dumps(initial_state)
         self._client.setex(redis_key, self.ttl, value)
@@ -64,7 +63,6 @@ class RedisSessionStore(object):
 
         self._client.delete(self.redis_key)
         del self.request.session[self.session_key]
-        self.request.session.modified = True
 
     def is_valid(self):
         return self.redis_key and self._client.get(self.redis_key)

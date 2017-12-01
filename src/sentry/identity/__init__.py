@@ -13,3 +13,5 @@ get = default_manager.get
 exists = default_manager.exists
 register = default_manager.register
 unregister = default_manager.unregister
+
+register(SlackIdentityProvider)

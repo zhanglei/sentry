@@ -1,7 +1,8 @@
 from __future__ import absolute_import
 
 from django.http import HttpResponse
-from sentry.integrations import Integration, PipelineView
+from sentry.integrations import Integration
+from sentry.utils.pipeline import PipelineView
 
 
 class ExampleSetupView(PipelineView):
@@ -26,7 +27,7 @@ class ExampleIntegration(Integration):
     """
     An example integration, generally used for testing.
     """
-    id = 'example'
+    key = 'example'
 
     name = 'Example'
 
@@ -53,5 +54,5 @@ class ExampleIntegration(Integration):
         Executed once Sentry has been initialized at runtime.
 
         >>> def setup(self):
-        >>>     bindings.add('repository.provider', GitHubRepositoryProvider, id='github')
+        >>>     bindings.add('repository.provider', GitHubRepositoryProvider, key='github')
         """

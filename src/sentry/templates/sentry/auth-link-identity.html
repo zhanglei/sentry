@@ -9,6 +9,7 @@
 {% block auth_main %}
 <form class="form-stacked" action="" method="post">
   {% csrf_token %}
+  <input type="hidden" name="init" value="1" />
 
   <div class="align-center">
     <img src="{% asset_url "sentry" "images/default-organization-logo.png" %}" class="org-avatar">

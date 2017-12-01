@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from sentry import http, options
 from sentry.api.base import Endpoint
-from sentry.models import Activity, Group, Integration, Project
+from sentry.models import Activity, Group, Integration, Project, Identity
 from sentry.utils import json
 
 from .utils import build_attachment, build_workflow_message, logger
@@ -57,6 +57,13 @@ class SlackActionEndpoint(Endpoint):
         channel_id = data.get('channel', {}).get('id')
         user_id = data.get('user', {}).get('id')
         callback_id = data.get('callback_id')
+
+        identity = Identity.objects.get(external_id=user_id)
+
+        print(identity.user)
+
+
+
         # TODO(dcramer): should we verify this here?
         # authed_users = data.get('authed_users')
 

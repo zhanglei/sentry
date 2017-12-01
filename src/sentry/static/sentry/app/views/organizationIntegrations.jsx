@@ -142,7 +142,7 @@ export default class OrganizationIntegrations extends AsyncView {
           >
             {this.state.config.providers.map(provider => {
               return (
-                <MenuItem noAnchor={true} key={provider.id}>
+                <MenuItem noAnchor={true} key={provider.key}>
                   <a onClick={() => this.launchAddIntegration(provider)}>
                     {provider.name}
                   </a>
@@ -162,7 +162,7 @@ export default class OrganizationIntegrations extends AsyncView {
                       <td style={{width: 24, paddingRight: 0}}>
                         <span
                           className={`icon icon-integration icon-${integration.provider
-                            .id}`}
+                            .key}`}
                           style={iconStyles}
                         />
                       </td>

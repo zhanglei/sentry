@@ -99,6 +99,11 @@ class ProviderPipeline(object):
     A class property that must be specified to allow for lookup of a provider
     implmentation object given it's key.
 
+    :provider_model_cls:
+    The Provider model object represents the instance of an object implementing
+    the PipelineableProvider interface. This is used to look up the instance
+    when cosntructing an in progress pipleine (get_for_request).
+
     :config:
     A object that specifies additional pipeline and provider runtime
     configurations. An example of usage is for OAuth Identity providers, for
@@ -107,6 +112,7 @@ class ProviderPipeline(object):
     """
     pipeline_name = None
     provider_manager = None
+    provider_model_cls = None
 
     @classmethod
     def get_for_request(cls, request):
@@ -118,27 +124,33 @@ class ProviderPipeline(object):
         if not organization_id:
             return None
 
+        provider_model = None
+        if state.provider_model_id:
+            provider_model = cls.provider_model_cls.objects.get(id=state.provider_model_id)
+
         organization = Organization.objects.get(id=state.org_id)
         provider_key = state.provider_key
         config = state.config
 
-        return cls(request, organization, provider_key, config)
+        return cls(request, organization, provider_key, provider_model, config)
 
-    def __init__(self, request, organization, provider_key, config={}):
+    def __init__(self, request, organization, provider_key, provider_model=None, config={}):
         self.request = request
         self.organization = organization
         self.state = RedisSessionStore(request, self.pipeline_name)
         self.provider = self.provider_manager.get(provider_key)
+        self.provider_model = provider_model
 
         self.config = config
         self.provider.set_config(config)
 
         self.pipeline = self.provider.get_pipeline()
 
-        # we serialize the pipeline to be [PipelineView().get_ident(), ...] which
+        # we serialize the pipeline to be ['fqn.PipelineView', ...] which
         # allows us to determine if the pipeline has changed during the auth
         # flow or if the user is somehow circumventing a chunk of it
         pipe_ids = ['{}.{}'.format(type(v).__module__, type(v).__name__) for v in self.pipeline]
+        print(pipe_ids)
         self.signature = md5_text(*pipe_ids).hexdigest()
 
     def is_valid(self):
@@ -147,6 +159,7 @@ class ProviderPipeline(object):
     def initialize(self):
         self.state.regenerate({
             'uid': self.request.user.id if self.request.user.is_authenticated() else None,
+            'provider_model_id': self.provider_model.id if self.provider_model else None,
             'provider_key': self.provider.key,
             'org_id': self.organization.id,
             'step_index': 0,
