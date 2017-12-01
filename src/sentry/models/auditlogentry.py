@@ -62,6 +62,9 @@ class AuditLogEntryEvent(object):
     RULE_EDIT = 81
     RULE_REMOVE = 82
 
+    TRIAL_STARTED = 90
+    PLAN_CHANGED = 91
+
 
 class AuditLogEntry(Model):
     __core__ = False
@@ -117,6 +120,8 @@ class AuditLogEntry(Model):
             (AuditLogEntryEvent.RULE_ADD, 'rule.create'),
             (AuditLogEntryEvent.RULE_EDIT, 'rule.edit'),
             (AuditLogEntryEvent.RULE_REMOVE, 'rule.remove'),
+            (AuditLogEntryEvent.TRIAL_STARTED, 'trial.started'),
+            (AuditLogEntryEvent.PLAN_CHANGED, 'plan.changed'),
         )
     )
     ip_address = models.GenericIPAddressField(null=True, unpack_ipv4=True)
@@ -242,5 +247,10 @@ class AuditLogEntry(Model):
             return 'edited rule "%s"' % (self.data['label'], )
         elif self.event == AuditLogEntryEvent.RULE_REMOVE:
             return 'removed rule "%s"' % (self.data['label'], )
+
+        elif self.event == AuditLogEntryEvent.TRIAL_STARTED:
+            return 'started trial'
+        elif self.event == AuditLogEntryEvent.PLAN_CHANGED:
+            return 'changed plan to %s' % (self.data['plan_name'], )
 
         return ''
