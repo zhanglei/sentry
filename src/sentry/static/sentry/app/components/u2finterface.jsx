@@ -72,9 +72,25 @@ const U2fInterface = React.createClass({
             hasBeenTapped: true,
           },
           () => {
-            this.state.responseElement.value = JSON.stringify(data);
-            if (!this.props.onTap || this.props.onTap()) {
-              this.state.formElement.submit();
+            let u2fResponse = JSON.stringify(data);
+            let challenge = JSON.stringify(this.props.challengeData);
+            this.state.responseElement.value = u2fResponse;
+
+            if (!this.props.onTap) {
+              this.state.formElement && this.state.formElement.submit();
+            } else {
+              this.props
+                .onTap({
+                  response: u2fResponse,
+                  challenge,
+                })
+                .catch(err => {
+                  // This is kind of gross but I want to limit the amount of changes to this component
+                  this.setState({
+                    deviceFailure: 'UNKNOWN_ERROR',
+                    hasBeenTapped: false,
+                  });
+                });
             }
           }
         );
@@ -108,9 +124,12 @@ const U2fInterface = React.createClass({
   bindChallengeElement(ref) {
     this.setState({
       challengeElement: ref,
-      formElement: ref.form,
+      formElement: ref && ref.form,
     });
-    ref.value = JSON.stringify(this.props.challengeData);
+
+    if (ref) {
+      ref.value = JSON.stringify(this.props.challengeData);
+    }
   },
 
   bindResponseElement(ref) {
@@ -154,10 +173,11 @@ const U2fInterface = React.createClass({
     );
     return (
       <div className="failure-message">
-        <p>
+        <div>
           <strong>{t('Error: ')}</strong>{' '}
           {
             {
+              UNKNOWN_ERROR: t('There was an unknown problem, please try again'),
               DEVICE_ERROR: t('Your U2F device reported an error.'),
               DUPLICATE_DEVICE: t('This device is already in use.'),
               UNKNOWN_DEVICE: t('The device you used for sign-in is unknown.'),
@@ -175,13 +195,13 @@ const U2fInterface = React.createClass({
               ),
             }[deviceFailure]
           }
-        </p>
+        </div>
         {this.canTryAgain() && (
-          <p>
+          <div style={{marginTop: 18}}>
             <a onClick={this.onTryAgain} className="btn btn-primary">
               {t('Try Again')}
             </a>
-          </p>
+          </div>
         )}
       </div>
     );
