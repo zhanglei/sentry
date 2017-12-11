@@ -11,7 +11,6 @@ from sentry import roles
 from sentry.models import AuditLogEntryEvent, Organization
 from sentry.signals import data_scrubber_enabled
 from sentry.web.frontend.base import OrganizationView
-# Do we even need this anymore?
 
 
 class OrganizationSettingsForm(forms.ModelForm):
