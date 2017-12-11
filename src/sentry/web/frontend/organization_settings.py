@@ -11,6 +11,7 @@ from sentry import roles
 from sentry.models import AuditLogEntryEvent, Organization
 from sentry.signals import data_scrubber_enabled
 from sentry.web.frontend.base import OrganizationView
+# Do we even need this anymore?
 
 
 class OrganizationSettingsForm(forms.ModelForm):
@@ -39,6 +40,11 @@ class OrganizationSettingsForm(forms.ModelForm):
     allow_shared_issues = forms.BooleanField(
         label=_('Allow Shared Issues'),
         help_text=_('Enable sharing of limited details on issues to anonymous users.'),
+        required=False,
+    )
+    require_2FA = forms.BooleanField(
+        label=_('Require 2FA'),
+        help_text=_('Require Two Factor Authentication for all members.'),
         required=False,
     )
     require_scrub_data = forms.BooleanField(
@@ -137,6 +143,8 @@ class OrganizationSettingsView(OrganizationView):
                 bool(organization.flags.enhanced_privacy),
                 'allow_shared_issues':
                 bool(not organization.flags.disable_shared_issues),
+                'require_2FA':
+                bool(organization.flags.require_2FA),
                 'require_scrub_data':
                 bool(organization.get_option('sentry:require_scrub_data', False)),
                 'require_scrub_defaults':
@@ -160,6 +168,7 @@ class OrganizationSettingsView(OrganizationView):
             organization.flags.enhanced_privacy = form.cleaned_data['enhanced_privacy']
             organization.flags.disable_shared_issues = not form.cleaned_data['allow_shared_issues']
             organization.flags.early_adopter = form.cleaned_data['early_adopter']
+            organization.flags.require_2FA = form.cleaned_data['require_2FA']
             organization.save()
 
             data_scrubbing_options = (

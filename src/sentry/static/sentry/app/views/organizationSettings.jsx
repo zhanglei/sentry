@@ -39,6 +39,7 @@ const OrganizationSettingsForm = React.createClass({
       slug: data.slug,
       openMembership: data.openMembership,
       allowSharedIssues: data.allowSharedIssues,
+      require2FA: data.require2FA,
       isEarlyAdopter: data.isEarlyAdopter,
       enhancedPrivacy: data.enhancedPrivacy,
       dataScrubber: data.dataScrubber,
@@ -223,6 +224,17 @@ const OrganizationSettingsForm = React.createClass({
             required={false}
             error={errors.allowSharedIssues}
             onChange={this.onFieldChange.bind(this, 'allowSharedIssues')}
+          />
+
+          <BooleanField
+            key="require2FA"
+            name="require2FA"
+            label={t('Require Two Factor Auth')}
+            value={formData.required2FA}
+            help={t('Require Two Factor Authentication for all members.')}
+            required={false}
+            error={errors.required2FA}
+            onChange={this.onFieldChange.bind(this, 'required2FA')}
           />
 
           <BooleanField
