@@ -137,7 +137,7 @@ const InviteMember = React.createClass({
       .then(() => this.redirectToMemberPage())
       .catch(error => {
         if (!error.email && !error.role) {
-          Raven.captureMessage('Unkown invite member api response', {
+          Raven.captureMessage('Unknown invite member api response', {
             extra: {error, state: this.state},
           });
         }
