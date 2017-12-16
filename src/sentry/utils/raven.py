@@ -3,11 +3,10 @@ from __future__ import absolute_import, print_function
 import copy
 import inspect
 import logging
-import raven
-import sentry
+import six
 
 from django.conf import settings
-from django.db.utils import DatabaseError
+from django.test import RequestFactory
 from raven.contrib.django.client import DjangoClient
 
 from . import metrics
@@ -27,6 +26,8 @@ def is_current_event_safe():
 
 
 class SentryInternalClient(DjangoClient):
+    request_factory = RequestFactory()
+
     def is_enabled(self):
         if getattr(settings, 'DISABLE_RAVEN', False):
             return False
@@ -43,9 +44,6 @@ class SentryInternalClient(DjangoClient):
         return super(SentryInternalClient, self).capture(*args, **kwargs)
 
     def send(self, **kwargs):
-        # TODO(dcramer): this should respect rate limits/etc and use the normal
-        # pipeline
-
         # Report the issue to an upstream Sentry if active
         # NOTE: we don't want to check self.is_enabled() like normal, since
         # is_enabled behavior is overridden in this class. We explicitly
@@ -60,65 +58,21 @@ class SentryInternalClient(DjangoClient):
         if not is_current_event_safe():
             return
 
-        from sentry import tsdb
-        from sentry.coreapi import ClientApiHelper
-        from sentry.event_manager import EventManager
-        from sentry.models import Project
-
-        helper = ClientApiHelper(
-            agent='raven-python/%s (sentry %s)' % (raven.VERSION, sentry.VERSION),
-            project_id=settings.SENTRY_PROJECT,
-            version=self.protocol_version,
+        from sentry.web.api import StoreView
+        headers = {
+            'HTTP_X_SENTRY_AUTH': 'Sentry sentry_key=%s,sentry_version=%s,sentry_client=internal' % (settings.SECRET_KEY, self.protocol_version),
+            'CONTENT_ENCODING': self.get_content_encoding(),
+        }
+        request = self.request_factory.post(
+            '/api/store',
+            data=self.encode(kwargs),
+            content_type='application/octet-stream',
+            **headers
         )
-
-        try:
-            project = Project.objects.get_from_cache(id=settings.SENTRY_PROJECT)
-        except DatabaseError:
-            self.error_logger.error('Unable to fetch internal project', exc_info=True)
-            return
-        except Project.DoesNotExist:
-            self.error_logger.error(
-                'Internal project (id=%s) does not exist', settings.SENTRY_PROJECT
-            )
-            return
-        except Exception:
-            self.error_logger.error(
-                'Unable to fetch internal project for some unknown reason', exc_info=True
-            )
-            return
-
-        helper.context.bind_project(project)
-
-        metrics.incr('events.total')
-
-        kwargs['project'] = project.id
-        try:
-            # This in theory is the right way to do it because validate
-            # also normalizes currently, but we just send in data already
-            # normalised in the raven client now.
-            # data = helper.validate_data(kwargs)
-            data = kwargs
-            manager = EventManager(data)
-            data = manager.normalize()
-            tsdb.incr_multi(
-                [
-                    (tsdb.models.project_total_received, project.id),
-                    (tsdb.models.organization_total_received, project.organization_id),
-                ]
-            )
-            helper.insert_data_to_database(data)
-        except Exception as e:
-            if self.raise_send_errors:
-                raise
-            message = kwargs.get('message')
-            if not message:
-                msg_interface = kwargs.get('sentry.interface.Message', {})
-                message = msg_interface.get(
-                    'formatted', msg_interface.get('message', 'unknown error')
-                )
-            self.error_logger.error(
-                'Unable to record event: %s\nEvent was: %r', e, message, exc_info=True
-            )
+        StoreView.as_view()(
+            request,
+            project_id=six.text_type(settings.SENTRY_PROJECT),
+        )
 
 
 class SentryInternalFilter(logging.Filter):
