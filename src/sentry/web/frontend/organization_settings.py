@@ -167,7 +167,7 @@ class OrganizationSettingsView(OrganizationView):
             organization.flags.enhanced_privacy = form.cleaned_data['enhanced_privacy']
             organization.flags.disable_shared_issues = not form.cleaned_data['allow_shared_issues']
             organization.flags.early_adopter = form.cleaned_data['early_adopter']
-            organization.flags.require_2FA = form.cleaned_data['require_2FA']
+            organization.flags.require_2fa = form.cleaned_data['require_2fa']
             organization.save()
 
             data_scrubbing_options = (
