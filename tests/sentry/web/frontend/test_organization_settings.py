@@ -48,61 +48,70 @@ class OrganizationSettingsTest(TestCase):
 
 
 class OrganizationSettings2FATest(APITestCase):
+    def enable_user_2fa(self, user):
+        TotpInterface().enroll(user)
+        assert Authenticator.objects.user_has_2fa(user)
+
+    def assert_can_enable_2FA(self, organization, user, status_code=200):
+        self.assert_cannot_enable_2FA(organization, user, status_code)
+
+    def assert_cannot_enable_2FA(self, organization, user, status_code):
+        def enable_org_2fa():
+            self.login_as(user)
+            url = reverse(
+                'sentry-api-0-organization-details', kwargs={
+                    'organization_slug': organization.slug,
+                }
+            )
+            response = self.client.put(
+                url,
+                data={
+                    'require2FA': True,
+                }
+            )
+            return response
+
+        response = enable_org_2fa()
+
+        assert response.status_code == status_code, response.content
+        organization = Organization.objects.get(id=organization.id)
+        if status_code == 200:
+            assert organization.flags.require_2fa
+        else:
+            assert not organization.flags.require_2fa
 
     def test_cannot_set_enforce_2fa_without_2fa(self):
         owner = self.user
         organization = self.create_organization(owner=owner)
         assert not Authenticator.objects.user_has_2fa(owner)
 
-        self.login_as(owner)
-        url = reverse(
-            'sentry-api-0-organization-details', kwargs={
-                'organization_slug': organization.slug,
-            }
-        )
-        response = self.client.put(
-            url,
-            data={
-                'require2FA': True,
-            }
-        )
+        self.enable_user_2fa(owner)
+        self.assert_can_enable_2FA(organization, owner)
 
-        assert response.status_code == 400, response.content
-        organization = Organization.objects.get(id=organization.id)
-        assert not organization.flags.require_2fa
-
-    def test_admin_can_set_2fa(self):
+    def test_owner_can_set_2fa(self):
         owner = self.user
         organization = self.create_organization(owner=owner)
-        assert not Authenticator.objects.user_has_2fa(owner)
 
-        # enable 2FA for owner
-        TotpInterface().enroll(owner)
-        assert Authenticator.objects.user_has_2fa(owner)
+        self.enable_user_2fa(owner)
+        self.assert_can_enable_2FA(organization, owner)
 
-        # enable 2FA for organization
-        self.login_as(owner)
-        url = reverse(
-            'sentry-api-0-organization-details', kwargs={
-                'organization_slug': organization.slug,
-            }
-        )
-        response = self.client.put(
-            url,
-            data={
-                'require2FA': True,
-            }
-        )
+    def test_manager_can_set_2fa(self):
+        manager = self.create_user()
+        organization = self.create_organization(owner=self.create_user())
+        self.create_member(organization=organization, user=manager, role="manager")
 
-        assert response.status_code == 200, response.content
-        organization = Organization.objects.get(id=organization.id)
-        assert organization.flags.require_2fa
+        self.assert_cannot_enable_2FA(organization, manager, 400)
+        self.enable_user_2fa(manager)
+        self.assert_can_enable_2FA(organization, manager)
 
-    def test_nonadmin_cannot_set_2FA(self):
-        pass
+    def test_members_cannot_set_2fa(self):
+        member = self.create_user()
+        organization = self.create_organization(owner=self.create_user())
+        self.create_member(organization=organization, user=member, role="member")
 
-    def test_enable_2FA_only_if_2FA_enabled_personal_account(self):
-        pass
+        self.assert_cannot_enable_2FA(organization, member, 403)
+        self.enable_user_2fa(member)
+        self.assert_cannot_enable_2FA(organization, member, 403)
 
     def test_new_member_must_enable_2FA(self):
         # prior to joing!
