@@ -274,17 +274,13 @@ const Stream = React.createClass({
     // state may not yet be defined at this point
     let state = this.state || {};
 
-    let hasQuery = currentQuery.hasOwnProperty('query');
+    let hasQuery = currentQuery.query;
 
     let searchId = hasQuery ? null : props.params.searchId || state.searchId || null;
 
-    let sort = currentQuery.hasOwnProperty('sort')
-      ? currentQuery.sort
-      : this.props.defaultSort;
+    let sort = currentQuery.sort || this.props.defaultSort;
 
-    let statsPeriod = currentQuery.hasOwnProperty('statsPeriod')
-      ? currentQuery.statsPeriod
-      : this.props.defaultStatsPeriod;
+    let statsPeriod = currentQuery.statsPeriod || this.props.defaultStatsPeriod;
 
     if (statsPeriod !== '14d' && statsPeriod !== '24h') {
       statsPeriod = this.props.defaultStatsPeriod;
@@ -329,7 +325,7 @@ const Stream = React.createClass({
   hasQuery(props) {
     props = props || this.props;
     let currentQuery = props.location.query || {};
-    return currentQuery.hasOwnProperty('query');
+    return !!currentQuery.query;
   },
 
   fetchData() {
@@ -352,7 +348,7 @@ const Stream = React.createClass({
     };
 
     let currentQuery = this.props.location.query || {};
-    if (currentQuery.hasOwnProperty('cursor')) {
+    if ('cursor' in currentQuery) {
       requestParams.cursor = currentQuery.cursor;
     }
 
